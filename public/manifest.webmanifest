@@ -1,0 +1,17 @@
+{
+  "name": "吃了没",
+  "short_name": "吃了没",
+  "description": "无广告、界面极简、下单快、配送透明的外卖 App",
+  "start_url": "./",
+  "display": "standalone",
+  "background_color": "#FFFFFF",
+  "theme_color": "#FF6B35",
+  "icons": [
+    {
+      "src": "./icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    }
+  ]
+}

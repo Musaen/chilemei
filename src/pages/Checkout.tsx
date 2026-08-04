@@ -1,10 +1,11 @@
 import { useMemo, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { getStoreById } from '../data/stores';
+import { MEAL_EXCLUDES, getStoreById } from '../data/stores';
 import type { Order } from '../types';
 import { useCart } from '../context/CartContext';
 import { useOrders } from '../context/OrdersContext';
 import { useProfile } from '../context/ProfileContext';
+import { useMealPrefs } from '../context/MealPrefsContext';
 import { useToast } from '../context/ToastContext';
 import { formatPrice, makeOrderId } from '../utils/format';
 import Header from '../components/Header';
@@ -20,6 +21,7 @@ export default function Checkout() {
   const { getStoreCart, setQty, clearStore } = useCart();
   const { orders, addOrder } = useOrders();
   const { addresses, addAddress } = useProfile();
+  const { excludes, toggle } = useMealPrefs();
   const { showToast } = useToast();
 
   const store = useMemo(() => getStoreById(params.get('store') ?? ''), [params]);
@@ -66,6 +68,10 @@ export default function Checkout() {
   const handleSubmit = () => {
     if (!selectedAddr || submitting) return;
     setSubmitting(true);
+    // 备注 + 忌口合并写入订单
+    const finalNote = [note.trim(), excludes.length > 0 ? `忌口：${excludes.join('、')}` : '']
+      .filter(Boolean)
+      .join('；');
     const order: Order = {
       id: makeOrderId(),
       storeId: store.id,
@@ -83,7 +89,7 @@ export default function Checkout() {
       discount,
       total,
       address: selectedAddr,
-      note,
+      note: finalNote,
       placedAt: Date.now(),
       payMethod: '',
       deliveryTime: store.deliveryTime,
@@ -185,9 +191,25 @@ export default function Checkout() {
             </button>
           ))}
         </div>
+        {/* 这一顿忌口：选中的会写进备注告诉商家 */}
+        <div className="note-label">这一顿不想吃</div>
+        <div className="note-chips">
+          {MEAL_EXCLUDES.map((m) => (
+            <button
+              key={m.key}
+              className={excludes.includes(m.key) ? 'note-chip note-chip--active' : 'note-chip'}
+              onClick={() => toggle(m.key)}
+            >
+              {m.emoji} {m.label}
+            </button>
+          ))}
+        </div>
+        {excludes.length > 0 && (
+          <div className="exclude-summary">将随订单告知商家：{excludes.join('、')}</div>
+        )}
         <textarea
           className="note-input"
-          placeholder="口味偏好、餐具数量等，告诉商家"
+          placeholder="口味偏好、餐具数量等，告诉商家（忌口已自动填写）"
           value={note}
           onChange={(e) => setNote(e.target.value)}
           rows={2}

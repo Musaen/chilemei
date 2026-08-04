@@ -5,6 +5,7 @@ import { ToastProvider } from './context/ToastContext';
 import { CartProvider } from './context/CartContext';
 import { OrdersProvider } from './context/OrdersContext';
 import { ProfileProvider } from './context/ProfileContext';
+import { MealPrefsProvider } from './context/MealPrefsContext';
 import App from './App';
 import './index.css';
 
@@ -15,9 +16,11 @@ createRoot(document.getElementById('root')!).render(
       <CartProvider>
         <OrdersProvider>
           <ProfileProvider>
-            <HashRouter>
-              <App />
-            </HashRouter>
+            <MealPrefsProvider>
+              <HashRouter>
+                <App />
+              </HashRouter>
+            </MealPrefsProvider>
           </ProfileProvider>
         </OrdersProvider>
       </CartProvider>

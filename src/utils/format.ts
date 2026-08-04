@@ -1,4 +1,4 @@
-import type { Order, OrderStatus } from '../types';
+import type { Dish, Order, OrderStatus } from '../types';
 
 /** 演示配送时间轴（单位：秒，相对下单时间） */
 export const TIMELINE = {
@@ -100,4 +100,10 @@ export function formatSeconds(sec: number): string {
   const mm = String(Math.floor(s / 60)).padStart(2, '0');
   const ss = String(s % 60).padStart(2, '0');
   return `${mm}:${ss}`;
+}
+
+/** 判断菜品是否命中「这一顿不想吃什么」 */
+export function isDishExcluded(dish: Dish, excludes: string[]): boolean {
+  if (excludes.length === 0 || !dish.avoid || dish.avoid.length === 0) return false;
+  return dish.avoid.some((a) => excludes.includes(a));
 }

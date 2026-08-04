@@ -10,7 +10,7 @@ import { TIMELINE } from '../utils/format';
 
 export default function Profile() {
   const navigate = useNavigate();
-  const { nickname, setNickname, favorites, toggleFavorite } = useProfile();
+  const { nickname, setNickname, favorites, toggleFavorite, blocked } = useProfile();
   const { orders } = useOrders();
   const { showToast } = useToast();
   const [editing, setEditing] = useState(false);
@@ -81,6 +81,12 @@ export default function Profile() {
         <button className="profile-menu-item" onClick={() => navigate('/addresses')}>
           <span className="menu-icon">📍</span>
           <span className="menu-label">收货地址</span>
+          <span className="menu-arrow">›</span>
+        </button>
+        <button className="profile-menu-item" onClick={() => navigate('/blocked')}>
+          <span className="menu-icon">🚫</span>
+          <span className="menu-label">已拉黑店铺</span>
+          {blocked.length > 0 && <span className="menu-count">{blocked.length}</span>}
           <span className="menu-arrow">›</span>
         </button>
         <button className="profile-menu-item" onClick={() => showToast('演示模式：暂无优惠券')}>

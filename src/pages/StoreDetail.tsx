@@ -3,9 +3,12 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { getStoreById } from '../data/stores';
 import { useCart } from '../context/CartContext';
 import { useProfile } from '../context/ProfileContext';
-import { formatPrice } from '../utils/format';
+import { useMealPrefs } from '../context/MealPrefsContext';
+import { useToast } from '../context/ToastContext';
+import { formatPrice, isDishExcluded } from '../utils/format';
 import Stepper from '../components/Stepper';
 import CartBar from '../components/CartBar';
+import MealExcludeSheet from '../components/MealExcludeSheet';
 
 // 店铺详情：菜单、加购、底部购物车栏
 
@@ -14,8 +17,11 @@ export default function StoreDetail() {
   const navigate = useNavigate();
   const store = useMemo(() => getStoreById(id ?? ''), [id]);
   const { getStoreCart, add, setQty } = useCart();
-  const { isFavorite, toggleFavorite } = useProfile();
+  const { isFavorite, toggleFavorite, isBlocked, blockStore, unblockStore } = useProfile();
+  const { excludes, toggle } = useMealPrefs();
+  const { showToast } = useToast();
   const [activeCat, setActiveCat] = useState('');
+  const [showSheet, setShowSheet] = useState(false);
   const groupRefs = useRef<Record<string, HTMLDivElement | null>>({});
 
   // 按分类分组菜品
@@ -45,6 +51,8 @@ export default function StoreDetail() {
 
   const cart = getStoreCart(store);
   const fav = isFavorite(store.id);
+  const blocked = isBlocked(store.id);
+  const hiddenCount = store.dishes.filter((d) => isDishExcluded(d, excludes)).length;
 
   /** 点击分类时滚动到对应分组 */
   const scrollTo = (cat: string) => {
@@ -85,7 +93,72 @@ export default function StoreDetail() {
           ))}
         </div>
         <div className="store-notice">📢 {store.notice}</div>
+        {/* 收藏 / 拉黑操作 */}
+        <div className="store-actions">
+          <button
+            className={fav ? 'store-action store-action--active' : 'store-action'}
+            onClick={() => {
+              toggleFavorite(store.id);
+              showToast(fav ? '已取消收藏' : '已收藏');
+            }}
+          >
+            {fav ? '♥' : '♡'} {fav ? '已收藏' : '收藏'}
+          </button>
+          <button
+            className={blocked ? 'store-action store-action--danger' : 'store-action'}
+            onClick={() => {
+              if (blocked) {
+                unblockStore(store.id);
+                showToast('已取消拉黑');
+              } else {
+                blockStore(store.id);
+                showToast('已拉黑这家店，首页不再推荐');
+              }
+            }}
+          >
+            {blocked ? '✓ 已拉黑' : '🚫 拉黑这家店'}
+          </button>
+        </div>
+        {blocked && (
+          <div className="blocked-notice">
+            你已拉黑这家店，首页将不再推荐。想恢复可到「我的 → 已拉黑店铺」。
+          </div>
+        )}
       </div>
+
+      {/* 这一顿不想吃什么 */}
+      <div className="meal-bar">
+        <span className="meal-bar-label">这一顿不吃</span>
+        {excludes.length === 0 ? (
+          <button className="meal-bar-empty" onClick={() => setShowSheet(true)}>
+            还没有选择，点我设置 →
+          </button>
+        ) : (
+          <>
+            <div className="meal-bar-chips">
+              {excludes.map((k) => (
+                <span className="meal-bar-chip" key={k}>
+                  {k}
+                  <button aria-label={`移除${k}`} onClick={() => toggle(k)}>
+                    ×
+                  </button>
+                </span>
+              ))}
+            </div>
+            <button className="link-btn" onClick={() => setShowSheet(true)}>
+              调整
+            </button>
+          </>
+        )}
+      </div>
+      {hiddenCount > 0 && (
+        <div className="meal-hidden-tip">
+          已为你隐藏 {hiddenCount} 道不想吃的菜
+          <button className="link-btn" onClick={() => setShowSheet(true)}>
+            重新选择
+          </button>
+        </div>
+      )}
 
       {/* 分类导航 */}
       <div className="menu-tabs">
@@ -111,7 +184,7 @@ export default function StoreDetail() {
             }}
           >
             <h3 className="menu-group-title">{c.name}</h3>
-            {c.dishes.map((dish) => {
+            {c.dishes.filter((d) => !isDishExcluded(d, excludes)).map((dish) => {
               const qty = cart.items.find((i) => i.dish.id === dish.id)?.qty ?? 0;
               return (
                 <div className={dish.soldOut ? 'dish-card dish-card--soldout' : 'dish-card'} key={dish.id}>
@@ -149,12 +222,17 @@ export default function StoreDetail() {
                 </div>
               );
             })}
+            {c.dishes.every((d) => isDishExcluded(d, excludes)) && (
+              <div className="menu-group-empty">这个分类的菜都被你这一顿排除了～</div>
+            )}
           </div>
         ))}
       </div>
 
       {/* 底部购物车栏 */}
       <CartBar store={store} />
+      {/* 忌口选择面板 */}
+      <MealExcludeSheet open={showSheet} onClose={() => setShowSheet(false)} />
     </div>
   );
 }

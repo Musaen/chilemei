@@ -10,6 +10,7 @@ export interface Dish {
   emoji: string; // 菜品图标，用 emoji 展示，无需图片资源
   sales: number; // 月售
   tags: string[]; // 标签：招牌 / 新品 / 辣 等
+  avoid?: string[]; // 忌口关键词：命中「这一顿不吃」时隐藏，如 辣 / 香菜 / 猪肉
   soldOut?: boolean; // 是否售罄
 }
 

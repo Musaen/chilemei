@@ -5,8 +5,9 @@ import type { Dish, Store } from '../types';
 import { useCart } from '../context/CartContext';
 import { useOrders } from '../context/OrdersContext';
 import { useProfile } from '../context/ProfileContext';
+import { useMealPrefs } from '../context/MealPrefsContext';
 import { useToast } from '../context/ToastContext';
-import { formatPrice, getPeriod, greeting } from '../utils/format';
+import { formatPrice, getPeriod, greeting, isDishExcluded } from '../utils/format';
 import StoreCard from '../components/StoreCard';
 
 // 首页：搜索、时段推荐、分类、猜你喜欢、附近好店
@@ -60,14 +61,21 @@ export default function Home() {
   const navigate = useNavigate();
   const { add } = useCart();
   const { orders } = useOrders();
-  const { favorites } = useProfile();
+  const { favorites, blocked } = useProfile();
+  const { excludes, toggle } = useMealPrefs();
   const { showToast } = useToast();
   const [keyword, setKeyword] = useState('');
   const [category, setCategory] = useState('全部');
   const [sort, setSort] = useState<'综合' | '评分' | '销量' | '配送最快'>('综合');
 
   const period = getPeriod();
-  const periodDishes = useMemo(() => buildPeriodDishes(period), [period]);
+  const periodDishes = useMemo(
+    () =>
+      buildPeriodDishes(period).filter(
+        ({ dish, store }) => !blocked.includes(store.id) && !isDishExcluded(dish, excludes),
+      ),
+    [period, blocked, excludes],
+  );
 
   /** 猜你喜欢：历史订单品类加权 + 收藏优先，无历史按评分 */
   const guessStores = useMemo(() => {
@@ -76,17 +84,18 @@ export default function Home() {
       const store = STORES.find((s) => s.id === order.storeId);
       if (store) weight.set(store.category, (weight.get(store.category) ?? 0) + 1);
     }
-    const scored = STORES.map((s) => {
+    const scored = STORES.filter((s) => !blocked.includes(s.id)).map((s) => {
       let score = weight.get(s.category) ?? 0;
       if (favorites.includes(s.id)) score += 5;
       return { s, score: score * 100 + s.rating };
     });
     return scored.sort((a, b) => b.score - a.score).slice(0, 4).map((x) => x.s);
-  }, [orders, favorites]);
+  }, [orders, favorites, blocked]);
 
   /** 附近好店：关键词 + 分类过滤 + 排序 */
   const storeList = useMemo(() => {
     let list = STORES.filter((s) => {
+      if (blocked.includes(s.id)) return false;
       const matchCat = category === '全部' || s.category === category;
       const kw = keyword.trim();
       const matchKw =
@@ -100,7 +109,7 @@ export default function Home() {
     if (sort === '销量') list = [...list].sort((a, b) => b.monthlySales - a.monthlySales);
     if (sort === '配送最快') list = [...list].sort((a, b) => a.deliveryTime - b.deliveryTime);
     return list;
-  }, [keyword, category, sort]);
+  }, [keyword, category, sort, blocked]);
 
   return (
     <div className="page home-page">
@@ -148,6 +157,21 @@ export default function Home() {
       </div>
 
       <div className="home-body">
+        {/* 这一顿不想吃什么（快捷移除） */}
+        {excludes.length > 0 && (
+          <div className="home-excludes">
+            <span className="home-excludes-label">这一顿不吃</span>
+            {excludes.map((k) => (
+              <span className="meal-bar-chip" key={k}>
+                {k}
+                <button aria-label={`移除${k}`} onClick={() => toggle(k)}>
+                  ×
+                </button>
+              </span>
+            ))}
+          </div>
+        )}
+
         {/* 现在适合吃 */}
         <section className="section">
           <div className="section-head">

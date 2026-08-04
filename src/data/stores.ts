@@ -2,6 +2,22 @@ import type { Address, Store } from '../types';
 
 // 北京风格 mock 数据：店铺、菜品、地址
 
+/** 「这一顿不想吃什么」可选忌口 */
+export const MEAL_EXCLUDES: { key: string; emoji: string; label: string }[] = [
+  { key: '辣', emoji: '🌶️', label: '辣' },
+  { key: '香菜', emoji: '🥬', label: '香菜' },
+  { key: '葱', emoji: '🧅', label: '葱' },
+  { key: '蒜', emoji: '🧄', label: '蒜' },
+  { key: '油炸', emoji: '🍟', label: '油炸' },
+  { key: '甜', emoji: '🍬', label: '甜' },
+  { key: '猪肉', emoji: '🥩', label: '猪肉' },
+  { key: '牛肉', emoji: '🐂', label: '牛肉' },
+  { key: '羊肉', emoji: '🐑', label: '羊肉' },
+  { key: '海鲜', emoji: '🦐', label: '海鲜' },
+  { key: '花生', emoji: '🥜', label: '花生' },
+  { key: '奶制品', emoji: '🥛', label: '奶制品' },
+];
+
 export const STORES: Store[] = [
   {
     id: 'store_hutong',
@@ -26,6 +42,7 @@ export const STORES: Store[] = [
         emoji: '🍜',
         sales: 1200,
         tags: ['招牌'],
+        avoid: ['葱'],
       },
       {
         id: 'd_hm_taocan',
@@ -36,6 +53,7 @@ export const STORES: Store[] = [
         emoji: '🍱',
         sales: 860,
         tags: ['超值'],
+        avoid: ['葱'],
       },
       {
         id: 'd_hm_roudin',
@@ -45,6 +63,7 @@ export const STORES: Store[] = [
         emoji: '🥩',
         sales: 430,
         tags: [],
+        avoid: ['葱', '猪肉'],
       },
       {
         id: 'd_hm_dalu',
@@ -54,6 +73,7 @@ export const STORES: Store[] = [
         emoji: '🍲',
         sales: 380,
         tags: [],
+        avoid: ['葱'],
       },
       {
         id: 'd_hm_majiang',
@@ -63,6 +83,7 @@ export const STORES: Store[] = [
         emoji: '🥒',
         sales: 210,
         tags: ['时令'],
+        avoid: ['花生', '葱'],
       },
       {
         id: 'd_hm_luzhu',
@@ -72,6 +93,7 @@ export const STORES: Store[] = [
         emoji: '🍖',
         sales: 150,
         tags: ['辣'],
+        avoid: ['猪肉', '辣', '葱', '蒜'],
       },
       {
         id: 'd_hm_douzhir',
@@ -81,6 +103,7 @@ export const STORES: Store[] = [
         emoji: '🥛',
         sales: 90,
         tags: ['经典'],
+        avoid: [],
       },
       {
         id: 'd_hm_beibing',
@@ -116,6 +139,7 @@ export const STORES: Store[] = [
         emoji: '🥟',
         sales: 1500,
         tags: ['招牌'],
+        avoid: ['猪肉', '葱'],
       },
       {
         id: 'd_xl_xiehuang',
@@ -125,6 +149,7 @@ export const STORES: Store[] = [
         emoji: '🦀',
         sales: 620,
         tags: ['鲜'],
+        avoid: ['海鲜', '猪肉', '葱'],
       },
       {
         id: 'd_xl_shengjian',
@@ -134,6 +159,7 @@ export const STORES: Store[] = [
         emoji: '🥠',
         sales: 900,
         tags: [],
+        avoid: ['猪肉', '油炸', '葱'],
       },
       {
         id: 'd_xl_huntun',
@@ -143,6 +169,7 @@ export const STORES: Store[] = [
         emoji: '🍲',
         sales: 400,
         tags: [],
+        avoid: ['猪肉', '葱'],
       },
       {
         id: 'd_xl_hongdou',
@@ -152,6 +179,7 @@ export const STORES: Store[] = [
         emoji: '🍵',
         sales: 250,
         tags: ['甜品'],
+        avoid: ['甜'],
       },
       {
         id: 'd_xl_doujiang',
@@ -161,6 +189,7 @@ export const STORES: Store[] = [
         emoji: '🥛',
         sales: 180,
         tags: [],
+        avoid: [],
       },
       {
         id: 'd_xl_quanjiafu',
@@ -170,6 +199,7 @@ export const STORES: Store[] = [
         emoji: '🥟',
         sales: 350,
         tags: ['超值'],
+        avoid: ['猪肉', '海鲜', '葱'],
       },
     ],
   },
@@ -196,6 +226,7 @@ export const STORES: Store[] = [
         emoji: '🥭',
         sales: 2800,
         tags: ['招牌'],
+        avoid: ['奶制品', '甜'],
       },
       {
         id: 'd_nc_zhenzhu',
@@ -205,6 +236,7 @@ export const STORES: Store[] = [
         emoji: '🧋',
         sales: 3200,
         tags: [],
+        avoid: ['奶制品', '甜'],
       },
       {
         id: 'd_nc_putao',
@@ -214,6 +246,7 @@ export const STORES: Store[] = [
         emoji: '🍇',
         sales: 1800,
         tags: ['新品'],
+        avoid: ['奶制品', '甜'],
       },
       {
         id: 'd_nc_yeye',
@@ -223,6 +256,7 @@ export const STORES: Store[] = [
         emoji: '🥥',
         sales: 1500,
         tags: [],
+        avoid: ['奶制品'],
       },
       {
         id: 'd_nc_baixiang',
@@ -232,6 +266,7 @@ export const STORES: Store[] = [
         emoji: '🍋',
         sales: 1200,
         tags: [],
+        avoid: ['甜'],
       },
       {
         id: 'd_nc_moli',
@@ -241,6 +276,7 @@ export const STORES: Store[] = [
         emoji: '🍃',
         sales: 980,
         tags: [],
+        avoid: ['奶制品', '甜'],
       },
       {
         id: 'd_nc_yuni',
@@ -250,6 +286,7 @@ export const STORES: Store[] = [
         emoji: '🍠',
         sales: 1100,
         tags: ['热饮'],
+        avoid: ['奶制品', '甜'],
       },
     ],
   },
@@ -276,6 +313,7 @@ export const STORES: Store[] = [
         emoji: '🍔',
         sales: 1600,
         tags: ['招牌'],
+        avoid: ['牛肉', '奶制品'],
       },
       {
         id: 'd_hb_xiangla',
@@ -285,6 +323,7 @@ export const STORES: Store[] = [
         emoji: '🍗',
         sales: 1400,
         tags: ['辣'],
+        avoid: ['辣', '油炸'],
       },
       {
         id: 'd_hb_peigen',
@@ -294,6 +333,7 @@ export const STORES: Store[] = [
         emoji: '🥓',
         sales: 800,
         tags: [],
+        avoid: ['牛肉', '猪肉', '奶制品'],
       },
       {
         id: 'd_hb_shutiao',
@@ -303,6 +343,7 @@ export const STORES: Store[] = [
         emoji: '🍟',
         sales: 2000,
         tags: [],
+        avoid: ['油炸'],
       },
       {
         id: 'd_hb_jichi',
@@ -312,6 +353,7 @@ export const STORES: Store[] = [
         emoji: '🍗',
         sales: 1100,
         tags: [],
+        avoid: ['油炸', '辣'],
       },
       {
         id: 'd_hb_kole',
@@ -321,6 +363,7 @@ export const STORES: Store[] = [
         emoji: '🥤',
         sales: 1500,
         tags: [],
+        avoid: [],
       },
       {
         id: 'd_hb_quanjiatong',
@@ -330,6 +373,7 @@ export const STORES: Store[] = [
         emoji: '🪣',
         sales: 260,
         tags: ['超值'],
+        avoid: ['牛肉', '猪肉', '油炸', '辣'],
       },
     ],
   },
@@ -356,6 +400,7 @@ export const STORES: Store[] = [
         emoji: '🍱',
         sales: 600,
         tags: ['招牌'],
+        avoid: [],
       },
       {
         id: 'd_qs_niuyouguo',
@@ -365,6 +410,7 @@ export const STORES: Store[] = [
         emoji: '🥑',
         sales: 420,
         tags: ['新品'],
+        avoid: ['蒜'],
       },
       {
         id: 'd_qs_juan',
@@ -374,6 +420,7 @@ export const STORES: Store[] = [
         emoji: '🌯',
         sales: 380,
         tags: [],
+        avoid: ['蒜', '葱'],
       },
       {
         id: 'd_qs_shuiguo',
@@ -383,6 +430,7 @@ export const STORES: Store[] = [
         emoji: '🍓',
         sales: 350,
         tags: [],
+        avoid: [],
       },
       {
         id: 'd_qs_yogurt',
@@ -392,6 +440,7 @@ export const STORES: Store[] = [
         emoji: '🥣',
         sales: 290,
         tags: [],
+        avoid: ['奶制品', '甜'],
       },
       {
         id: 'd_qs_coldbrew',
@@ -401,6 +450,7 @@ export const STORES: Store[] = [
         emoji: '☕',
         sales: 500,
         tags: [],
+        avoid: [],
       },
     ],
   },
@@ -427,6 +477,7 @@ export const STORES: Store[] = [
         emoji: '🍡',
         sales: 800,
         tags: ['招牌'],
+        avoid: ['甜'],
       },
       {
         id: 'd_ts_shanyao',
@@ -436,6 +487,7 @@ export const STORES: Store[] = [
         emoji: '🍢',
         sales: 300,
         tags: [],
+        avoid: ['甜'],
       },
       {
         id: 'd_ts_caomei',
@@ -445,6 +497,7 @@ export const STORES: Store[] = [
         emoji: '🍓',
         sales: 520,
         tags: ['新品', '限时'],
+        avoid: ['甜'],
       },
       {
         id: 'd_ts_lvdagun',
@@ -454,6 +507,7 @@ export const STORES: Store[] = [
         emoji: '🟤',
         sales: 280,
         tags: [],
+        avoid: ['甜'],
       },
       {
         id: 'd_ts_wandou',
@@ -463,6 +517,7 @@ export const STORES: Store[] = [
         emoji: '🟡',
         sales: 200,
         tags: [],
+        avoid: ['甜'],
       },
       {
         id: 'd_ts_suanmei',
@@ -472,6 +527,7 @@ export const STORES: Store[] = [
         emoji: '🍹',
         sales: 350,
         tags: [],
+        avoid: [],
       },
       {
         id: 'd_ts_banli',
@@ -481,6 +537,7 @@ export const STORES: Store[] = [
         emoji: '🌰',
         sales: 450,
         tags: [],
+        avoid: ['甜'],
         soldOut: true,
       },
     ],
@@ -508,6 +565,7 @@ export const STORES: Store[] = [
         emoji: '🍢',
         sales: 1500,
         tags: ['招牌', '辣'],
+        avoid: ['辣'],
       },
       {
         id: 'd_sk_jichi',
@@ -517,6 +575,7 @@ export const STORES: Store[] = [
         emoji: '🍗',
         sales: 900,
         tags: ['辣'],
+        avoid: ['辣', '油炸'],
       },
       {
         id: 'd_sk_qiezi',
@@ -526,6 +585,7 @@ export const STORES: Store[] = [
         emoji: '🍆',
         sales: 700,
         tags: [],
+        avoid: ['蒜', '辣'],
       },
       {
         id: 'd_sk_jiucai',
@@ -535,6 +595,7 @@ export const STORES: Store[] = [
         emoji: '🌿',
         sales: 400,
         tags: [],
+        avoid: ['辣'],
       },
       {
         id: 'd_sk_shanbei',
@@ -544,6 +605,7 @@ export const STORES: Store[] = [
         emoji: '🦪',
         sales: 300,
         tags: ['鲜'],
+        avoid: ['海鲜', '蒜', '辣'],
         soldOut: true,
       },
       {
@@ -554,6 +616,7 @@ export const STORES: Store[] = [
         emoji: '🍞',
         sales: 500,
         tags: [],
+        avoid: [],
       },
       {
         id: 'd_sk_yaozi',
@@ -563,6 +626,7 @@ export const STORES: Store[] = [
         emoji: '🍡',
         sales: 600,
         tags: ['辣'],
+        avoid: ['辣'],
       },
       {
         id: 'd_sk_pijiu',
@@ -572,6 +636,7 @@ export const STORES: Store[] = [
         emoji: '🍺',
         sales: 800,
         tags: [],
+        avoid: [],
       },
     ],
   },
@@ -598,6 +663,7 @@ export const STORES: Store[] = [
         emoji: '🍲',
         sales: 600,
         tags: ['招牌'],
+        avoid: ['辣', '葱'],
       },
       {
         id: 'd_yxz_daguo',
@@ -608,6 +674,7 @@ export const STORES: Store[] = [
         emoji: '🍲',
         sales: 420,
         tags: ['超值'],
+        avoid: ['辣', '葱'],
       },
       {
         id: 'd_yxz_shouqie',
@@ -617,6 +684,7 @@ export const STORES: Store[] = [
         emoji: '🥩',
         sales: 380,
         tags: [],
+        avoid: ['羊肉'],
       },
       {
         id: 'd_yxz_shaobing',
@@ -626,6 +694,7 @@ export const STORES: Store[] = [
         emoji: '🫓',
         sales: 900,
         tags: [],
+        avoid: ['花生'],
       },
       {
         id: 'd_yxz_huanggua',
@@ -635,6 +704,7 @@ export const STORES: Store[] = [
         emoji: '🥒',
         sales: 300,
         tags: [],
+        avoid: ['蒜'],
       },
       {
         id: 'd_yxz_maodu',
@@ -644,6 +714,7 @@ export const STORES: Store[] = [
         emoji: '🌶️',
         sales: 260,
         tags: ['辣'],
+        avoid: ['辣'],
       },
     ],
   },

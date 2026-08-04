@@ -2,6 +2,12 @@
 
 无广告、界面极简、下单快、配送透明的外卖 App（v1 演示版）。
 
+## 在线预览
+
+<https://Musaen.github.io/chilemei/>
+
+线上版本部署在 GitHub Pages（`gh-pages` 分支发布）。
+
 ## 运行方式
 
 ```bash

@@ -6,7 +6,7 @@
 
 <https://Musaen.github.io/chilemei/>
 
-线上版本部署在 GitHub Pages（`gh-pages` 分支发布）。
+每次推送到 `main` 分支都会自动重新构建并更新线上版本。
 
 ## 运行方式
 

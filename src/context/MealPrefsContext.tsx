@@ -1,7 +1,9 @@
 import { createContext, useContext, useEffect, useState } from 'react';
 import type { ReactNode } from 'react';
+import { api } from '../api/client';
+import { useAuth } from './AuthContext';
 
-// 「这一顿不想吃什么」：每次点餐时的忌口选择，持久化到 localStorage
+// 「这一顿不想吃什么」：本地即时生效；已登录时同步到服务端（跟随账号）
 
 const STORAGE_KEY = 'clm_meal_excludes';
 
@@ -23,7 +25,23 @@ function loadExcludes(): string[] {
 }
 
 export function MealPrefsProvider({ children }: { children: ReactNode }) {
+  const { apiMode, token } = useAuth();
   const [excludes, setExcludes] = useState<string[]>(loadExcludes);
+
+  // 登录后从服务端拉取忌口偏好
+  useEffect(() => {
+    if (!apiMode || !token) return;
+    let cancelled = false;
+    api
+      .get<{ excludes: string[] }>('/excludes', token)
+      .then((data) => {
+        if (!cancelled) setExcludes(data.excludes);
+      })
+      .catch(() => undefined);
+    return () => {
+      cancelled = true;
+    };
+  }, [apiMode, token]);
 
   // 忌口变化时写入本地存储
   useEffect(() => {
@@ -31,10 +49,20 @@ export function MealPrefsProvider({ children }: { children: ReactNode }) {
   }, [excludes]);
 
   const toggle = (key: string) => {
-    setExcludes((prev) => (prev.includes(key) ? prev.filter((k) => k !== key) : [...prev, key]));
+    const next = excludes.includes(key) ? excludes.filter((k) => k !== key) : [...excludes, key];
+    setExcludes(next);
+    // 已登录时同步到服务端（失败静默）
+    if (apiMode && token) {
+      api.put('/excludes', { excludes: next }, token).catch(() => undefined);
+    }
   };
 
-  const clear = () => setExcludes([]);
+  const clear = () => {
+    setExcludes([]);
+    if (apiMode && token) {
+      api.put('/excludes', { excludes: [] }, token).catch(() => undefined);
+    }
+  };
 
   return <MealPrefsContext.Provider value={{ excludes, toggle, clear }}>{children}</MealPrefsContext.Provider>;
 }

@@ -1,0 +1,23 @@
+{
+  "name": "chilemei-server",
+  "private": true,
+  "version": "0.1.0",
+  "description": "吃了没后端服务：鉴权、店铺、订单、地址与偏好 API",
+  "type": "module",
+  "scripts": {
+    "dev": "tsx watch src/index.ts",
+    "start": "tsx src/index.ts",
+    "seed": "tsx src/seed.ts",
+    "test": "tsx src/test.ts"
+  },
+  "dependencies": {
+    "cors": "^2.8.5",
+    "express": "^4.21.0"
+  },
+  "devDependencies": {
+    "@types/cors": "^2.8.17",
+    "@types/express": "^4.17.21",
+    "@types/node": "^22.5.0",
+    "tsx": "^4.19.0"
+  }
+}

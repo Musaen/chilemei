@@ -10,6 +10,7 @@ import OrderDetail from './pages/OrderDetail';
 import Profile from './pages/Profile';
 import Addresses from './pages/Addresses';
 import Blocked from './pages/Blocked';
+import Login from './pages/Login';
 import TabBar from './components/TabBar';
 
 /** 路由切换时回到页面顶部 */
@@ -36,6 +37,7 @@ export default function App() {
         <Route path="/profile" element={<Profile />} />
         <Route path="/addresses" element={<Addresses />} />
         <Route path="/blocked" element={<Blocked />} />
+        <Route path="/login" element={<Login />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
       <TabBar />

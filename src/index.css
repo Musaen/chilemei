@@ -2367,6 +2367,73 @@ textarea {
   padding: 2px 8px;
 }
 
+/* ===== 登录页 ===== */
+.login-body {
+  padding: 32px 26px;
+}
+
+.login-hero {
+  font-size: 56px;
+  text-align: center;
+}
+
+.login-title {
+  font-size: 22px;
+  text-align: center;
+  margin-top: 12px;
+}
+
+.login-sub {
+  font-size: 13px;
+  color: var(--text-3);
+  text-align: center;
+  margin: 8px 0 28px;
+  line-height: 1.6;
+}
+
+.login-field {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: var(--bg);
+  border-radius: var(--radius-sm);
+  padding: 4px 6px 4px 14px;
+  margin-bottom: 14px;
+}
+
+.login-prefix {
+  font-size: 15px;
+  color: var(--text-2);
+  font-weight: 600;
+}
+
+.login-field input {
+  background: transparent;
+  flex: 1;
+}
+
+.code-btn {
+  flex: 0 0 auto;
+  font-size: 13px;
+  color: var(--primary);
+  background: var(--primary-light);
+  border-radius: 999px;
+  padding: 9px 14px;
+  font-weight: 600;
+}
+
+.code-btn--sent {
+  color: var(--text-3);
+  background: var(--bg);
+}
+
+.login-hint {
+  font-size: 12px;
+  color: var(--primary);
+  text-align: center;
+  margin-bottom: 8px;
+}
+
 /* ===== 主题色切换 ===== */
 .theme-section {
   margin-bottom: 16px;

@@ -1,10 +1,11 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { getStoreById } from '../data/stores';
 import { useProfile } from '../context/ProfileContext';
 import { useOrders } from '../context/OrdersContext';
 import { useToast } from '../context/ToastContext';
 import { useTheme } from '../context/ThemeContext';
+import { useAuth } from '../context/AuthContext';
+import { useStores } from '../context/StoresContext';
 import { THEMES, getTheme } from '../theme';
 import { TIMELINE } from '../utils/format';
 
@@ -16,6 +17,8 @@ export default function Profile() {
   const { orders } = useOrders();
   const { showToast } = useToast();
   const { themeKey, setThemeKey } = useTheme();
+  const { user, apiMode, logout } = useAuth();
+  const { getStoreById } = useStores();
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(nickname);
 
@@ -31,10 +34,14 @@ export default function Profile() {
     showToast('昵称已保存');
   };
 
+  /** 手机号打码展示 */
+  const maskPhone = (p: string) => (p.length === 11 ? `${p.slice(0, 3)}****${p.slice(-4)}` : p);
+
   return (
     <div className="page profile-page">
       <div className="page-head">
         <h1>我的</h1>
+        <span className="page-head-sub">{apiMode ? '🟢 在线模式' : '⚪ 演示模式'}</span>
       </div>
 
       {/* 个人信息卡 */}
@@ -56,7 +63,9 @@ export default function Profile() {
               {nickname} ✏️
             </div>
           )}
-          <div className="profile-phone">138****8888 · 北京</div>
+          <div className="profile-phone">
+            {user ? `${maskPhone(user.phone)} · 已登录` : apiMode ? '未登录 · 登录后云端同步' : '演示模式 · 数据存本机'}
+          </div>
         </div>
         <div className="profile-stats">
           <div className="profile-stat">
@@ -99,6 +108,26 @@ export default function Profile() {
 
       {/* 菜单 */}
       <div className="profile-menu">
+        {apiMode && !user && (
+          <button className="profile-menu-item" onClick={() => navigate('/login')}>
+            <span className="menu-icon">🔐</span>
+            <span className="menu-label">登录同步到云端</span>
+            <span className="menu-arrow">›</span>
+          </button>
+        )}
+        {user && (
+          <button
+            className="profile-menu-item"
+            onClick={() => {
+              logout();
+              showToast('已退出登录');
+            }}
+          >
+            <span className="menu-icon">🚪</span>
+            <span className="menu-label">退出登录（{maskPhone(user.phone)}）</span>
+            <span className="menu-arrow">›</span>
+          </button>
+        )}
         <button className="profile-menu-item" onClick={() => navigate('/orders')}>
           <span className="menu-icon">📋</span>
           <span className="menu-label">我的订单</span>

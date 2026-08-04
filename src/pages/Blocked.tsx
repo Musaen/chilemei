@@ -1,7 +1,7 @@
 import { useNavigate } from 'react-router-dom';
-import { getStoreById } from '../data/stores';
 import { useProfile } from '../context/ProfileContext';
 import { useToast } from '../context/ToastContext';
+import { useStores } from '../context/StoresContext';
 import Header from '../components/Header';
 
 // 已拉黑店铺管理页：查看与取消拉黑
@@ -10,6 +10,7 @@ export default function Blocked() {
   const navigate = useNavigate();
   const { blocked, unblockStore } = useProfile();
   const { showToast } = useToast();
+  const { getStoreById } = useStores();
   const stores = blocked.map((id) => getStoreById(id)).filter((s) => s !== undefined);
 
   return (

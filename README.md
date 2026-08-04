@@ -17,10 +17,17 @@
 
 ```bash
 npm install
+npm --prefix server install
+npm run seed        # 首次：把店铺/菜品导入数据库
+npm run server      # 启动后端 API（http://localhost:8787）
 npm run dev
 ```
 
 浏览器打开 `http://localhost:5173` 即可体验。桌面浏览器会自动居中显示手机宽度，模拟 App 效果。
+
+**在线模式 / 演示模式**：后端启动时，店铺、订单、收藏、拉黑、忌口等数据走服务端（手机号 + 验证码 123456 登录）；后端不可用时自动回退到内置演示数据，公开网页版（GitHub Pages）即运行在演示模式。
+
+后端 API 测试：`npm run server:test`
 
 ## 功能
 

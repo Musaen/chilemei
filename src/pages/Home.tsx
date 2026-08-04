@@ -1,11 +1,12 @@
 import { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { CATEGORIES, STORES } from '../data/stores';
+import { CATEGORIES } from '../data/stores';
 import type { Dish, Store } from '../types';
 import { useCart } from '../context/CartContext';
 import { useOrders } from '../context/OrdersContext';
 import { useProfile } from '../context/ProfileContext';
 import { useMealPrefs } from '../context/MealPrefsContext';
+import { useStores } from '../context/StoresContext';
 import { useToast } from '../context/ToastContext';
 import { formatPrice, getPeriod, greeting, isDishExcluded } from '../utils/format';
 import StoreCard from '../components/StoreCard';
@@ -29,11 +30,11 @@ function periodCategories(period: string): string[] {
 }
 
 /** 时段推荐：从匹配品类店铺中挑选招牌菜 */
-function buildPeriodDishes(period: string): { dish: Dish; store: Store }[] {
+function buildPeriodDishes(period: string, stores: Store[]): { dish: Dish; store: Store }[] {
   const cats = periodCategories(period);
   const result: { dish: Dish; store: Store }[] = [];
   const usedStores = new Set<string>();
-  for (const store of STORES) {
+  for (const store of stores) {
     if (!cats.includes(store.category)) continue;
     const pick = store.dishes.find((d) => d.tags.includes('招牌')) ?? store.dishes[0];
     if (pick && !pick.soldOut) {
@@ -43,7 +44,7 @@ function buildPeriodDishes(period: string): { dish: Dish; store: Store }[] {
   }
   // 品类匹配不足 4 个时，用评分最高的其他店铺招牌菜补足
   if (result.length < 4) {
-    const topup = STORES.filter((s) => !usedStores.has(s.id))
+    const topup = stores.filter((s) => !usedStores.has(s.id))
       .sort((a, b) => b.rating - a.rating)
       .flatMap((s) => {
         const pick = s.dishes.find((d) => d.tags.includes('招牌')) ?? s.dishes[0];
@@ -64,6 +65,7 @@ export default function Home() {
   const { favorites, blocked } = useProfile();
   const { excludes, toggle } = useMealPrefs();
   const { showToast } = useToast();
+  const { stores } = useStores();
   const [keyword, setKeyword] = useState('');
   const [category, setCategory] = useState('全部');
   const [sort, setSort] = useState<'综合' | '评分' | '销量' | '配送最快'>('综合');
@@ -71,30 +73,30 @@ export default function Home() {
   const period = getPeriod();
   const periodDishes = useMemo(
     () =>
-      buildPeriodDishes(period).filter(
+      buildPeriodDishes(period, stores).filter(
         ({ dish, store }) => !blocked.includes(store.id) && !isDishExcluded(dish, excludes),
       ),
-    [period, blocked, excludes],
+    [period, stores, blocked, excludes],
   );
 
   /** 猜你喜欢：历史订单品类加权 + 收藏优先，无历史按评分 */
   const guessStores = useMemo(() => {
     const weight = new Map<string, number>();
     for (const order of orders) {
-      const store = STORES.find((s) => s.id === order.storeId);
+      const store = stores.find((s) => s.id === order.storeId);
       if (store) weight.set(store.category, (weight.get(store.category) ?? 0) + 1);
     }
-    const scored = STORES.filter((s) => !blocked.includes(s.id)).map((s) => {
+    const scored = stores.filter((s) => !blocked.includes(s.id)).map((s) => {
       let score = weight.get(s.category) ?? 0;
       if (favorites.includes(s.id)) score += 5;
       return { s, score: score * 100 + s.rating };
     });
     return scored.sort((a, b) => b.score - a.score).slice(0, 4).map((x) => x.s);
-  }, [orders, favorites, blocked]);
+  }, [orders, favorites, blocked, stores]);
 
   /** 附近好店：关键词 + 分类过滤 + 排序 */
   const storeList = useMemo(() => {
-    let list = STORES.filter((s) => {
+    let list = stores.filter((s) => {
       if (blocked.includes(s.id)) return false;
       const matchCat = category === '全部' || s.category === category;
       const kw = keyword.trim();
@@ -109,7 +111,7 @@ export default function Home() {
     if (sort === '销量') list = [...list].sort((a, b) => b.monthlySales - a.monthlySales);
     if (sort === '配送最快') list = [...list].sort((a, b) => a.deliveryTime - b.deliveryTime);
     return list;
-  }, [keyword, category, sort, blocked]);
+  }, [keyword, category, sort, blocked, stores]);
 
   return (
     <div className="page home-page">

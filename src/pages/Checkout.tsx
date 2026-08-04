@@ -1,12 +1,13 @@
 import { useMemo, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { MEAL_EXCLUDES, getStoreById } from '../data/stores';
+import { MEAL_EXCLUDES } from '../data/stores';
 import type { Order } from '../types';
 import { useCart } from '../context/CartContext';
 import { useOrders } from '../context/OrdersContext';
 import { useProfile } from '../context/ProfileContext';
 import { useMealPrefs } from '../context/MealPrefsContext';
 import { useToast } from '../context/ToastContext';
+import { useStores } from '../context/StoresContext';
 import { formatPrice, makeOrderId } from '../utils/format';
 import Header from '../components/Header';
 import Stepper from '../components/Stepper';
@@ -23,8 +24,9 @@ export default function Checkout() {
   const { addresses, addAddress } = useProfile();
   const { excludes, toggle } = useMealPrefs();
   const { showToast } = useToast();
+  const { getStoreById } = useStores();
 
-  const store = useMemo(() => getStoreById(params.get('store') ?? ''), [params]);
+  const store = useMemo(() => getStoreById(params.get('store') ?? ''), [params, getStoreById]);
   const cart = store ? getStoreCart(store) : { items: [], count: 0, subtotal: 0 };
 
   const [addrId, setAddrId] = useState(addresses[0]?.id ?? '');
@@ -94,9 +96,11 @@ export default function Checkout() {
       payMethod: '',
       deliveryTime: store.deliveryTime,
     };
-    addOrder(order);
-    clearStore(store.id);
-    navigate('/payment', { state: { orderId: order.id } });
+    // 等待订单创建完成（API 模式会先请求服务端），再进入支付页
+    addOrder(order).then((created) => {
+      clearStore(store.id);
+      navigate('/payment', { state: { orderId: created.id } });
+    });
   };
 
   return (

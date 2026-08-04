@@ -1,10 +1,10 @@
 import { useMemo, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { getStoreById } from '../data/stores';
 import { useCart } from '../context/CartContext';
 import { useProfile } from '../context/ProfileContext';
 import { useMealPrefs } from '../context/MealPrefsContext';
 import { useToast } from '../context/ToastContext';
+import { useStores } from '../context/StoresContext';
 import { formatPrice, isDishExcluded } from '../utils/format';
 import Stepper from '../components/Stepper';
 import CartBar from '../components/CartBar';
@@ -15,7 +15,8 @@ import MealExcludeSheet from '../components/MealExcludeSheet';
 export default function StoreDetail() {
   const { id } = useParams();
   const navigate = useNavigate();
-  const store = useMemo(() => getStoreById(id ?? ''), [id]);
+  const { getStoreById } = useStores();
+  const store = useMemo(() => getStoreById(id ?? ''), [id, getStoreById]);
   const { getStoreCart, add, setQty } = useCart();
   const { isFavorite, toggleFavorite, isBlocked, blockStore, unblockStore } = useProfile();
   const { excludes, toggle } = useMealPrefs();

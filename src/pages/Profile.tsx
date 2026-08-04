@@ -4,6 +4,8 @@ import { getStoreById } from '../data/stores';
 import { useProfile } from '../context/ProfileContext';
 import { useOrders } from '../context/OrdersContext';
 import { useToast } from '../context/ToastContext';
+import { useTheme } from '../context/ThemeContext';
+import { THEMES, getTheme } from '../theme';
 import { TIMELINE } from '../utils/format';
 
 // 我的：昵称、菜单入口、收藏店铺
@@ -13,6 +15,7 @@ export default function Profile() {
   const { nickname, setNickname, favorites, toggleFavorite, blocked } = useProfile();
   const { orders } = useOrders();
   const { showToast } = useToast();
+  const { themeKey, setThemeKey } = useTheme();
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(nickname);
 
@@ -69,6 +72,29 @@ export default function Profile() {
             <span>收藏</span>
           </div>
         </div>
+      </div>
+
+      {/* 主题色切换 */}
+      <div className="theme-section">
+        <div className="section-head">
+          <h2 className="section-title">主题色</h2>
+          <span className="section-sub">点一下试试</span>
+        </div>
+        <div className="theme-grid">
+          {THEMES.map((t) => (
+            <button
+              key={t.key}
+              className={themeKey === t.key ? 'theme-item theme-item--active' : 'theme-item'}
+              onClick={() => setThemeKey(t.key)}
+            >
+              <span className="theme-swatch" style={{ background: t.colors.primary }} />
+              <span className="theme-name">
+                {t.emoji} {t.name}
+              </span>
+            </button>
+          ))}
+        </div>
+        <div className="theme-desc">{getTheme(themeKey).desc}</div>
       </div>
 
       {/* 菜单 */}

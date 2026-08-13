@@ -1,0 +1,18 @@
+# Render 蓝本：一键部署「吃了没」后端 API（免费版）
+# 使用方法：Render 控制台 → New → Blueprint → 选择本仓库，会自动识别本文件
+
+services:
+  - type: web
+    name: chilemei-api
+    runtime: node
+    plan: free
+    rootDir: server
+    buildCommand: npm install
+    startCommand: npm start
+    envVars:
+      # Node 22 才能使用内置 node:sqlite（免装数据库软件）
+      - key: NODE_VERSION
+        value: 22.16.0
+      # 令牌签名密钥：部署时自动生成随机值
+      - key: CHILEMEI_SECRET
+        generateValue: true

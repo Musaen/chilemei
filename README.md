@@ -8,6 +8,20 @@
 
 每次推送到 `main` 分支都会自动重新构建并更新线上版本。
 
+## 部署后端（免费云，让线上也能登录）
+
+线上静态版（GitHub Pages）默认运行在演示模式，登录功能需要后端服务。按下面步骤免费部署：
+
+1. 打开 [Render](https://render.com)（可用 GitHub 账号直接授权注册）；
+2. 点击 **New → Blueprint**，选择本仓库（会自动读取 `render.yaml`），确认创建 `chilemei-api` Web Service；
+3. 等待部署完成，复制服务地址，形如 `https://chilemei-api.onrender.com`；
+4. 回到 GitHub 仓库 **Settings → Secrets and variables → Actions → Variables**，新建变量 `API_URL`，值填上一步的地址；
+5. 推送任意一次提交（或手动触发一次 GitHub Actions），前端构建时会自动把 API 地址打进线上版本；
+6. 打开线上网址，登录页即可使用（手机号 + 验证码 `123456`）。
+
+> 免费版说明：Render 免费实例闲置约 15 分钟会休眠，休眠后首次访问需要约 50 秒冷启动；
+> SQLite 数据存在实例临时磁盘，重新部署/休眠重启会清空，适合演示，正式使用建议换托管数据库。
+
 ## 产品文档
 
 - [产品需求文档（PRD）](./docs/PRD.md)

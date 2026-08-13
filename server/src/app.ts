@@ -4,7 +4,9 @@ import type { Request, Response, NextFunction } from 'express';
 import { db } from './db';
 import { signToken, verifyToken } from './auth';
 import type { TokenPayload } from './auth';
-import type { Address, Dish, Order, OrderItem, Store } from '../../src/types';
+import type { Address, Coupon, Dish, Order, OrderItem, Review, Store } from '../../src/types';
+import { dishUnitPrice, specTextOf } from '../../src/utils/format';
+import { calcPricing } from '../../src/utils/pricing';
 
 // API 路由定义
 
@@ -50,6 +52,10 @@ function rowToStore(row: Record<string, unknown>): Store {
     tags: JSON.parse(String(row.tags)) as string[],
     notice: String(row.notice),
     banner: String(row.banner),
+    openHours: String(row.open_hours ?? '00:00-23:59'),
+    address: String(row.address ?? ''),
+    license: String(row.license ?? ''),
+    promos: JSON.parse(String(row.promos ?? '[]')) as Store['promos'],
     dishes: [],
   };
 }
@@ -67,6 +73,7 @@ function rowToDish(row: Record<string, unknown>): Dish {
     tags: JSON.parse(String(row.tags)) as string[],
     avoid: JSON.parse(String(row.avoid)) as string[],
     soldOut: Boolean(row.sold_out),
+    specs: JSON.parse(String(row.specs ?? '[]')) as Dish['specs'],
   };
 }
 
@@ -341,6 +348,8 @@ function rowToOrder(row: Record<string, unknown>, items: OrderItem[]): Order {
     items,
     subtotal: Number(row.subtotal),
     deliveryFee: Number(row.delivery_fee),
+    promoDiscount: Number(row.promo_discount ?? 0),
+    couponDiscount: Number(row.coupon_discount ?? 0),
     discount: Number(row.discount),
     total: Number(row.total),
     address: {
@@ -354,6 +363,10 @@ function rowToOrder(row: Record<string, unknown>, items: OrderItem[]): Order {
     placedAt: Number(row.placed_at),
     payMethod: '微信支付',
     deliveryTime: Number(row.delivery_time),
+    utensils: String(row.utensils ?? '按需'),
+    couponId: row.coupon_id == null ? undefined : String(row.coupon_id),
+    cancelled: Boolean(row.cancelled),
+    urges: Number(row.urges ?? 0),
   };
 }
 
@@ -376,6 +389,8 @@ app.get('/api/orders', requireAuth, (req, res) => {
       price: Number(i.price),
       qty: Number(i.qty),
       emoji: String(i.emoji),
+      specKey: i.spec_key == null ? undefined : String(i.spec_key),
+      specText: i.spec_text == null ? undefined : String(i.spec_text),
     }));
     return rowToOrder(row, orderItems);
   });
@@ -404,13 +419,15 @@ app.get('/api/orders/:id', requireAuth, (req, res) => {
     price: Number(i.price),
     qty: Number(i.qty),
     emoji: String(i.emoji),
+    specKey: i.spec_key == null ? undefined : String(i.spec_key),
+    specText: i.spec_text == null ? undefined : String(i.spec_text),
   }));
   res.json({ order: rowToOrder(row, orderItems) });
 });
 
 /** 创建订单：服务端按数据库价格计算金额，保证价格可信 */
 app.post('/api/orders', requireAuth, (req, res) => {
-  const { storeId, items, addressId, note } = req.body ?? {};
+  const { storeId, items, addressId, note, utensils, couponId } = req.body ?? {};
 
   const store = db.prepare('SELECT * FROM stores WHERE id = ?').get(String(storeId ?? '')) as
     | Record<string, unknown>
@@ -447,35 +464,79 @@ app.post('/api/orders', requireAuth, (req, res) => {
       return;
     }
     const qty = Math.max(1, Math.floor(Number(item?.qty) || 0));
-    const price = Number(dish.price);
+    // 规格：同一道菜按规格键区分，单价 = 基础价 + 规格加价
+    const specKey = item?.specKey ? String(item.specKey) : undefined;
+    const dishObj = rowToDish(dish);
+    const price = dishUnitPrice(dishObj, specKey);
+    const specText = specTextOf(dishObj, specKey);
     subtotal += price * qty;
-    orderItems.push({ dishId: String(dish.id), name: String(dish.name), price, qty, emoji: String(dish.emoji) });
+    orderItems.push({
+      dishId: String(dish.id),
+      name: String(dish.name),
+      price,
+      qty,
+      emoji: String(dish.emoji),
+      specKey,
+      specText,
+    });
   }
 
-  // 优惠规则：首单立减 5 元 + 满 30 免配送费
+  // 校验优惠券：必须是本人领取、未使用、未过期
+  let coupon: Coupon | undefined;
+  if (couponId) {
+    const couponRow = db
+      .prepare(
+        `SELECT c.id, c.title, c.threshold, c.amount, uc.expires_at, uc.claimed_at, uc.used_order_id
+         FROM user_coupons uc JOIN coupons c ON c.id = uc.coupon_id
+         WHERE uc.user_id = ? AND uc.coupon_id = ?`,
+      )
+      .get(req.user!.uid, String(couponId)) as Record<string, unknown> | undefined;
+    if (!couponRow || couponRow.used_order_id != null || Number(couponRow.expires_at) < Date.now()) {
+      res.status(400).json({ error: '优惠券不可用或已过期' });
+      return;
+    }
+    coupon = {
+      id: String(couponRow.id),
+      title: String(couponRow.title),
+      threshold: Number(couponRow.threshold),
+      amount: Number(couponRow.amount),
+      expiresAt: Number(couponRow.expires_at),
+      claimedAt: Number(couponRow.claimed_at),
+    };
+  }
+
+  // 统一计价：满减 + 优惠券 + 新人立减 + 免配送费（与前端共用同一套规则）
   const deliveryFee = Number(store.delivery_fee);
   const orderCount = (
     db.prepare('SELECT COUNT(*) AS c FROM orders WHERE user_id = ?').get(req.user!.uid) as { c: number }
   ).c;
-  const firstOrderDiscount = orderCount === 0 ? 5 : 0;
-  const freeDelivery = subtotal >= 30;
-  const discount = firstOrderDiscount + (freeDelivery ? deliveryFee : 0);
-  const total = Math.max(0, subtotal + deliveryFee - discount);
+  const pricing = calcPricing({
+    subtotal,
+    deliveryFee,
+    promos: JSON.parse(String(store.promos ?? '[]')) as Store['promos'],
+    coupon,
+    isFirstOrder: orderCount === 0,
+  });
+  const discount = pricing.discount;
+  const total = pricing.total;
 
   const orderId = makeOrderId();
   const placedAt = Date.now();
+  const utensilsText = String(utensils ?? '按需').slice(0, 10);
 
   db.exec('BEGIN');
   try {
     db.prepare(
-      `INSERT INTO orders (id, user_id, store_id, subtotal, delivery_fee, discount, total, address_name, address_phone, address_detail, address_tag, note, placed_at, delivery_time)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      `INSERT INTO orders (id, user_id, store_id, subtotal, delivery_fee, promo_discount, coupon_discount, discount, total, address_name, address_phone, address_detail, address_tag, note, placed_at, delivery_time, coupon_id, utensils, cancelled, urges)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, 0)`,
     ).run(
       orderId,
       req.user!.uid,
       String(store.id),
       subtotal,
       deliveryFee,
+      pricing.promoDiscount,
+      pricing.couponDiscount,
       discount,
       total,
       String(address.name),
@@ -485,12 +546,22 @@ app.post('/api/orders', requireAuth, (req, res) => {
       String(note ?? '').slice(0, 200),
       placedAt,
       Number(store.delivery_time),
+      coupon?.id ?? null,
+      utensilsText,
     );
     const insertItem = db.prepare(
-      'INSERT INTO order_items (order_id, dish_id, name, price, qty, emoji) VALUES (?, ?, ?, ?, ?, ?)',
+      'INSERT INTO order_items (order_id, dish_id, name, price, qty, emoji, spec_key, spec_text) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
     );
     for (const item of orderItems) {
-      insertItem.run(orderId, item.dishId, item.name, item.price, item.qty, item.emoji);
+      insertItem.run(orderId, item.dishId, item.name, item.price, item.qty, item.emoji, item.specKey ?? null, item.specText ?? null);
+    }
+    // 优惠券核销（绑定到本单）
+    if (coupon) {
+      db.prepare('UPDATE user_coupons SET used_order_id = ? WHERE user_id = ? AND coupon_id = ?').run(
+        orderId,
+        req.user!.uid,
+        coupon.id,
+      );
     }
     db.exec('COMMIT');
   } catch (err) {
@@ -507,6 +578,234 @@ app.post('/api/orders', requireAuth, (req, res) => {
     )
     .get(orderId) as Record<string, unknown>;
   res.status(201).json({ order: rowToOrder(row, orderItems) });
+});
+
+/** 按 id 读取订单（含明细），不存在返回 undefined */
+function fetchOrder(id: string): Order | undefined {
+  const row = db
+    .prepare(
+      `SELECT o.*, s.name AS store_name, s.emoji AS store_emoji
+       FROM orders o JOIN stores s ON s.id = o.store_id WHERE o.id = ?`,
+    )
+    .get(id) as Record<string, unknown> | undefined;
+  if (!row) return undefined;
+  const items = db
+    .prepare('SELECT * FROM order_items WHERE order_id = ? ORDER BY id')
+    .all(id) as Record<string, unknown>[];
+  const orderItems: OrderItem[] = items.map((i) => ({
+    dishId: String(i.dish_id),
+    name: String(i.name),
+    price: Number(i.price),
+    qty: Number(i.qty),
+    emoji: String(i.emoji),
+    specKey: i.spec_key == null ? undefined : String(i.spec_key),
+    specText: i.spec_text == null ? undefined : String(i.spec_text),
+  }));
+  return rowToOrder(row, orderItems);
+}
+
+/** 取消订单：下单后 15 秒内可取消（演示：原路退回并返还优惠券） */
+app.post('/api/orders/:id/cancel', requireAuth, (req, res) => {
+  const row = db
+    .prepare('SELECT * FROM orders WHERE id = ? AND user_id = ?')
+    .get(req.params.id, req.user!.uid) as Record<string, unknown> | undefined;
+  if (!row) {
+    res.status(404).json({ error: '订单不存在' });
+    return;
+  }
+  if (Boolean(row.cancelled)) {
+    res.status(400).json({ error: '订单已取消' });
+    return;
+  }
+  if (Date.now() - Number(row.placed_at) > 15000) {
+    res.status(400).json({ error: '已过可取消时间' });
+    return;
+  }
+  db.prepare('UPDATE orders SET cancelled = 1 WHERE id = ?').run(req.params.id);
+  // 返还优惠券，供下次下单继续使用
+  if (row.coupon_id != null) {
+    db.prepare('UPDATE user_coupons SET used_order_id = NULL WHERE user_id = ? AND coupon_id = ?').run(
+      req.user!.uid,
+      String(row.coupon_id),
+    );
+  }
+  const order = fetchOrder(String(req.params.id));
+  res.json({ order });
+});
+
+/** 催单：每次催单让演示配送进度提前 8 秒（最多累计 3 次） */
+app.post('/api/orders/:id/urge', requireAuth, (req, res) => {
+  const row = db
+    .prepare('SELECT * FROM orders WHERE id = ? AND user_id = ?')
+    .get(req.params.id, req.user!.uid) as Record<string, unknown> | undefined;
+  if (!row) {
+    res.status(404).json({ error: '订单不存在' });
+    return;
+  }
+  if (Boolean(row.cancelled)) {
+    res.status(400).json({ error: '订单已取消' });
+    return;
+  }
+  const urges = Math.min(3, Number(row.urges ?? 0) + 1);
+  db.prepare('UPDATE orders SET urges = ? WHERE id = ?').run(urges, req.params.id);
+  const order = fetchOrder(String(req.params.id));
+  res.json({ order });
+});
+
+// ===== 优惠券 =====
+
+/** 数据库行 → 优惠券对象 */
+function rowToCoupon(row: Record<string, unknown>): Coupon {
+  return {
+    id: String(row.id),
+    title: String(row.title),
+    threshold: Number(row.threshold),
+    amount: Number(row.amount),
+    expiresAt: Number(row.expires_at),
+    claimedAt: Number(row.claimed_at),
+    usedAt: row.used_order_id == null ? undefined : 1,
+  };
+}
+
+/** 领券中心：券模板 + 是否已领取 */
+app.get('/api/coupons/available', requireAuth, (req, res) => {
+  const rows = db.prepare('SELECT * FROM coupons ORDER BY sort').all() as Record<string, unknown>[];
+  const claimed = new Set(
+    (
+      db.prepare('SELECT coupon_id FROM user_coupons WHERE user_id = ?').all(req.user!.uid) as Record<string, unknown>[]
+    ).map((r) => String(r.coupon_id)),
+  );
+  const available = rows.map((r) => ({
+    id: String(r.id),
+    title: String(r.title),
+    threshold: Number(r.threshold),
+    amount: Number(r.amount),
+    desc: `全场通用 · 领取后 ${Number(r.valid_days)} 天内有效`,
+    validDays: Number(r.valid_days),
+    claimed: claimed.has(String(r.id)),
+  }));
+  res.json({ available });
+});
+
+/** 领取优惠券 */
+app.post('/api/coupons/:id/claim', requireAuth, (req, res) => {
+  const tpl = db.prepare('SELECT * FROM coupons WHERE id = ?').get(String(req.params.id)) as
+    | Record<string, unknown>
+    | undefined;
+  if (!tpl) {
+    res.status(404).json({ error: '优惠券不存在' });
+    return;
+  }
+  const exists = db
+    .prepare('SELECT 1 FROM user_coupons WHERE user_id = ? AND coupon_id = ?')
+    .get(req.user!.uid, String(tpl.id));
+  if (exists) {
+    res.status(400).json({ error: '该券已领取' });
+    return;
+  }
+  const claimedAt = Date.now();
+  const expiresAt = claimedAt + Number(tpl.valid_days) * 86400000;
+  db.prepare('INSERT INTO user_coupons (user_id, coupon_id, claimed_at, expires_at) VALUES (?, ?, ?, ?)').run(
+    req.user!.uid,
+    String(tpl.id),
+    claimedAt,
+    expiresAt,
+  );
+  res.json({
+    coupon: {
+      id: String(tpl.id),
+      title: String(tpl.title),
+      threshold: Number(tpl.threshold),
+      amount: Number(tpl.amount),
+      expiresAt,
+      claimedAt,
+    },
+  });
+});
+
+/** 我的优惠券 */
+app.get('/api/coupons/mine', requireAuth, (req, res) => {
+  const rows = db
+    .prepare(
+      `SELECT c.id, c.title, c.threshold, c.amount, uc.claimed_at, uc.expires_at, uc.used_order_id
+       FROM user_coupons uc JOIN coupons c ON c.id = uc.coupon_id
+       WHERE uc.user_id = ? ORDER BY uc.claimed_at DESC`,
+    )
+    .all(req.user!.uid) as Record<string, unknown>[];
+  res.json({ coupons: rows.map(rowToCoupon) });
+});
+
+// ===== 评价 =====
+
+/** 数据库行 → 评价对象 */
+function rowToReview(row: Record<string, unknown>): Review {
+  return {
+    id: String(row.id),
+    orderId: row.order_id == null ? undefined : String(row.order_id),
+    storeId: String(row.store_id),
+    rating: Number(row.rating),
+    tags: JSON.parse(String(row.tags)) as string[],
+    text: String(row.text),
+    createdAt: Number(row.created_at),
+    nickname: String(row.nickname),
+  };
+}
+
+/** 全部评价（在线模式下前端一次拉取，含种子评价与用户评价） */
+app.get('/api/reviews', (_req, res) => {
+  const rows = db.prepare('SELECT * FROM reviews ORDER BY created_at DESC').all() as Record<string, unknown>[];
+  res.json({ reviews: rows.map(rowToReview) });
+});
+
+/** 店铺评价列表 */
+app.get('/api/stores/:id/reviews', (req, res) => {
+  const rows = db
+    .prepare('SELECT * FROM reviews WHERE store_id = ? ORDER BY created_at DESC')
+    .all(String(req.params.id)) as Record<string, unknown>[];
+  res.json({ reviews: rows.map(rowToReview) });
+});
+
+/** 我的评价 */
+app.get('/api/reviews/mine', requireAuth, (req, res) => {
+  const rows = db
+    .prepare('SELECT * FROM reviews WHERE user_id = ? ORDER BY created_at DESC')
+    .all(req.user!.uid) as Record<string, unknown>[];
+  res.json({ reviews: rows.map(rowToReview) });
+});
+
+/** 提交评价（1-5 星 + 标签 + 文字） */
+app.post('/api/reviews', requireAuth, (req, res) => {
+  const { storeId, orderId, rating, tags, text } = req.body ?? {};
+  const store = db.prepare('SELECT id FROM stores WHERE id = ?').get(String(storeId ?? ''));
+  if (!store) {
+    res.status(404).json({ error: '店铺不存在' });
+    return;
+  }
+  const user = db.prepare('SELECT nickname FROM users WHERE id = ?').get(req.user!.uid) as Record<string, unknown>;
+  const review: Review = {
+    id: makeId('review'),
+    storeId: String(storeId),
+    orderId: orderId ? String(orderId) : undefined,
+    rating: Math.max(1, Math.min(5, Math.floor(Number(rating) || 5))),
+    tags: Array.isArray(tags) ? tags.map(String).slice(0, 5) : [],
+    text: String(text ?? '').slice(0, 200),
+    createdAt: Date.now(),
+    nickname: String(user.nickname),
+  };
+  db.prepare(
+    'INSERT INTO reviews (id, user_id, order_id, store_id, rating, tags, text, nickname, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
+  ).run(
+    review.id,
+    req.user!.uid,
+    review.orderId ?? null,
+    review.storeId,
+    review.rating,
+    JSON.stringify(review.tags),
+    review.text,
+    review.nickname,
+    review.createdAt,
+  );
+  res.status(201).json({ review });
 });
 
 /** 统一 404 与错误处理 */

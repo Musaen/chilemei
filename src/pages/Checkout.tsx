@@ -1,20 +1,23 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { MEAL_EXCLUDES } from '../data/stores';
 import type { Order } from '../types';
-import { useCart } from '../context/CartContext';
+import { itemKey, useCart } from '../context/CartContext';
 import { useOrders } from '../context/OrdersContext';
 import { useProfile } from '../context/ProfileContext';
 import { useMealPrefs } from '../context/MealPrefsContext';
 import { useToast } from '../context/ToastContext';
 import { useStores } from '../context/StoresContext';
+import { useCoupons } from '../context/CouponsContext';
 import { formatPrice, makeOrderId } from '../utils/format';
+import { calcPricing } from '../utils/pricing';
 import Header from '../components/Header';
 import Stepper from '../components/Stepper';
 
 // 结算页：地址、商品明细、价格透明、提交订单
 
 const NOTE_PRESETS = ['不要辣', '少辣', '多放醋', '不要香菜', '加冰', '趁热送'];
+const UTENSIL_OPTIONS = ['按需', '不要餐具', '1 套'];
 
 export default function Checkout() {
   const navigate = useNavigate();
@@ -25,6 +28,7 @@ export default function Checkout() {
   const { excludes, toggle } = useMealPrefs();
   const { showToast } = useToast();
   const { getStoreById } = useStores();
+  const { coupons, usableCoupons, markUsed } = useCoupons();
 
   const store = useMemo(() => getStoreById(params.get('store') ?? ''), [params, getStoreById]);
   const cart = store ? getStoreCart(store) : { items: [], count: 0, subtotal: 0 };
@@ -34,6 +38,8 @@ export default function Checkout() {
   const [showAddrForm, setShowAddrForm] = useState(false);
   const [addrForm, setAddrForm] = useState({ name: '', phone: '', detail: '', tag: '家' });
   const [submitting, setSubmitting] = useState(false);
+  const [couponId, setCouponId] = useState('');
+  const [utensils, setUtensils] = useState('按需');
 
   // 购物车为空或店铺不存在时回首页
   if (!store || cart.count === 0) {
@@ -50,9 +56,32 @@ export default function Checkout() {
 
   const selectedAddr = addresses.find((a) => a.id === addrId) ?? addresses[0];
   const isFirstOrder = orders.length === 0;
-  const freeDelivery = cart.subtotal >= 30;
-  const discount = (isFirstOrder ? 5 : 0) + (freeDelivery ? store.deliveryFee : 0);
-  const total = cart.subtotal + store.deliveryFee - discount;
+  const usable = usableCoupons(cart.subtotal);
+  const selectedCoupon = coupons.find((c) => c.id === couponId) ?? null;
+
+  // 小计变化时自动选中金额最大的可用优惠券
+  useEffect(() => {
+    const best = usable[0];
+    if (!best) {
+      setCouponId('');
+      return;
+    }
+    setCouponId((prev) => {
+      if (!prev) return best.id;
+      return usable.some((c) => c.id === prev) ? prev : best.id;
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [cart.subtotal]);
+
+  // 结算价格：满减 + 优惠券 + 新人立减 + 免配送费，全程透明
+  const pricing = calcPricing({
+    subtotal: cart.subtotal,
+    deliveryFee: store.deliveryFee,
+    promos: store.promos,
+    coupon: selectedCoupon,
+    isFirstOrder,
+  });
+  const total = pricing.total;
 
   /** 新增地址 */
   const handleAddAddress = () => {
@@ -79,25 +108,32 @@ export default function Checkout() {
       storeId: store.id,
       storeName: store.name,
       storeEmoji: store.emoji,
-      items: cart.items.map(({ dish, qty }) => ({
+      items: cart.items.map(({ dish, qty, specKey, specText, unitPrice }) => ({
         dishId: dish.id,
         name: dish.name,
-        price: dish.price,
+        price: unitPrice,
         qty,
         emoji: dish.emoji,
+        specKey,
+        specText,
       })),
       subtotal: cart.subtotal,
       deliveryFee: store.deliveryFee,
-      discount,
+      promoDiscount: pricing.promoDiscount,
+      couponDiscount: pricing.couponDiscount,
+      discount: pricing.discount,
       total,
       address: selectedAddr,
       note: finalNote,
       placedAt: Date.now(),
       payMethod: '',
       deliveryTime: store.deliveryTime,
+      utensils,
+      couponId: selectedCoupon?.id,
     };
     // 等待订单创建完成（API 模式会先请求服务端），再进入支付页
     addOrder(order).then((created) => {
+      markUsed(selectedCoupon?.id);
       clearStore(store.id);
       navigate('/payment', { state: { orderId: created.id } });
     });
@@ -168,15 +204,58 @@ export default function Checkout() {
           </h2>
         </div>
         <div className="checkout-items">
-          {cart.items.map(({ dish, qty }) => (
-            <div className="checkout-item" key={dish.id}>
-              <span className="checkout-item-emoji">{dish.emoji}</span>
-              <span className="checkout-item-name">{dish.name}</span>
-              <span className="checkout-item-price">¥{formatPrice(dish.price)}</span>
-              <Stepper small qty={qty} onAdd={() => setQty(store.id, dish.id, qty + 1)} onMinus={() => setQty(store.id, dish.id, qty - 1)} />
+          {cart.items.map((item) => (
+            <div className="checkout-item" key={itemKey(item.dish.id, item.specKey)}>
+              <span className="checkout-item-emoji">{item.dish.emoji}</span>
+              <div className="checkout-item-main">
+                <span className="checkout-item-name">{item.dish.name}</span>
+                {item.specText && <span className="checkout-item-spec">{item.specText}</span>}
+              </div>
+              <span className="checkout-item-price">¥{formatPrice(item.unitPrice)}</span>
+              <Stepper
+                small
+                qty={item.qty}
+                onAdd={() => setQty(store.id, itemKey(item.dish.id, item.specKey), item.qty + 1)}
+                onMinus={() => setQty(store.id, itemKey(item.dish.id, item.specKey), item.qty - 1)}
+              />
             </div>
           ))}
         </div>
+      </section>
+
+      {/* 优惠券 */}
+      <section className="card-section">
+        <div className="section-head">
+          <h2 className="section-title">优惠券</h2>
+          <button className="link-btn" onClick={() => navigate('/coupons')}>
+            去领券
+          </button>
+        </div>
+        {usable.length === 0 ? (
+          <p className="coupon-empty">还没有满足门槛的优惠券，加购更多商品后自动匹配最优券</p>
+        ) : (
+          <div className="checkout-coupons">
+            {usable.map((c) => (
+              <button
+                key={c.id}
+                className={couponId === c.id ? 'checkout-coupon checkout-coupon--active' : 'checkout-coupon'}
+                onClick={() => setCouponId(couponId === c.id ? '' : c.id)}
+              >
+                <span className="checkout-coupon-left">
+                  <span className="checkout-coupon-icon">🎟️</span>
+                  <span>
+                    {c.title}
+                    <span className="checkout-coupon-desc">满 ¥{formatPrice(c.threshold)} 可用</span>
+                  </span>
+                </span>
+                <span className="checkout-coupon-right">
+                  -¥{formatPrice(c.amount)}
+                  <span className="checkout-coupon-check">{couponId === c.id ? '✓' : ''}</span>
+                </span>
+              </button>
+            ))}
+          </div>
+        )}
       </section>
 
       {/* 备注 */}
@@ -211,6 +290,20 @@ export default function Checkout() {
         {excludes.length > 0 && (
           <div className="exclude-summary">将随订单告知商家：{excludes.join('、')}</div>
         )}
+        {/* 餐具偏好（环保选项） */}
+        <div className="note-label">餐具</div>
+        <div className="note-chips">
+          {UTENSIL_OPTIONS.map((u) => (
+            <button
+              key={u}
+              className={utensils === u ? 'note-chip note-chip--active' : 'note-chip'}
+              onClick={() => setUtensils(u)}
+            >
+              {u === '不要餐具' ? '🌱 ' : ''}
+              {u}
+            </button>
+          ))}
+        </div>
         <textarea
           className="note-input"
           placeholder="口味偏好、餐具数量等，告诉商家（忌口已自动填写）"
@@ -233,15 +326,27 @@ export default function Checkout() {
           </div>
           <div className="price-row">
             <span>配送费</span>
-            <span>{freeDelivery ? <s>¥{formatPrice(store.deliveryFee)}</s> : `¥${formatPrice(store.deliveryFee)}`}</span>
+            <span>{pricing.freeDelivery ? <s>¥{formatPrice(store.deliveryFee)}</s> : `¥${formatPrice(store.deliveryFee)}`}</span>
           </div>
+          {pricing.promoDiscount > 0 && (
+            <div className="price-row price-row--discount">
+              <span>店铺满减</span>
+              <span>-¥{formatPrice(pricing.promoDiscount)}</span>
+            </div>
+          )}
+          {pricing.couponDiscount > 0 && (
+            <div className="price-row price-row--discount">
+              <span>优惠券</span>
+              <span>-¥{formatPrice(pricing.couponDiscount)}</span>
+            </div>
+          )}
           {isFirstOrder && (
             <div className="price-row price-row--discount">
               <span>新人立减</span>
               <span>-¥5</span>
             </div>
           )}
-          {freeDelivery && (
+          {pricing.freeDelivery && (
             <div className="price-row price-row--discount">
               <span>满 30 免配送费</span>
               <span>-¥{formatPrice(store.deliveryFee)}</span>

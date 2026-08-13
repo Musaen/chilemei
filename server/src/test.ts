@@ -142,8 +142,8 @@ try {
   const o1 = order1.body.order as { subtotal: number; deliveryFee: number; discount: number; total: number; items: unknown[] };
   check('首单小计 41', order1.status === 201 && o1.subtotal === 41);
   check('首单配送费 2', o1.deliveryFee === 2);
-  check('首单优惠 7（免配送费+立减5）', o1.discount === 7);
-  check('首单实付 36', o1.total === 36);
+  check('首单优惠 14（满减7+免配送费2+立减5）', o1.discount === 14);
+  check('首单实付 29', o1.total === 29);
   check('订单项 2 条', o1.items.length === 2);
   check('订单备注含忌口', (order1.body.order as { note: string }).note === '忌口：辣');
 
@@ -171,6 +171,93 @@ try {
   check('订单列表 2 单', (orders.body.orders as unknown[]).length === 2);
   const orderDetail = await req(`/orders/${o1.id}`, { token });
   check('订单详情匹配', orderDetail.status === 200 && (orderDetail.body.order as { id: string }).id === o1.id);
+
+  // 菜品规格：同一道菜不同规格按独立条目计价
+  const specOrder = await req('/orders', {
+    method: 'POST',
+    body: {
+      storeId: 'store_naicha',
+      items: [
+        { dishId: 'd_nc_yangzhi', qty: 1, specKey: 'large|normal_ice' },
+        { dishId: 'd_nc_yangzhi', qty: 1, specKey: 'medium|less_ice' },
+      ],
+      addressId: addressId2,
+      note: '',
+      utensils: '不要餐具',
+    },
+    token,
+  });
+  const so = specOrder.body.order as {
+    subtotal: number;
+    discount: number;
+    total: number;
+    utensils: string;
+    items: { name: string; price: number; specText?: string }[];
+  };
+  check('规格订单小计 41（大杯22+中杯19）', specOrder.status === 201 && so.subtotal === 41);
+  check('规格订单优惠 9（满减7+免配送费2）', so.discount === 9);
+  check('规格订单实付 34', so.total === 34);
+  check('规格订单中杯价格 19', so.items.some((i) => i.price === 19 && i.specText?.includes('中杯')));
+  check('规格订单餐具写入', so.utensils === '不要餐具');
+
+  // 优惠券：领取 → 下单核销 → 我的券显示已用
+  const available = await req('/coupons/available', { token });
+  check('领券中心 4 张券', (available.body.available as unknown[]).length === 4);
+  const claim = await req('/coupons/cp_8/claim', { method: 'POST', token });
+  check('领取满 40 减 8', claim.status === 200);
+  const claimedTwice = await req('/coupons/cp_8/claim', { method: 'POST', token });
+  check('重复领取被拒', claimedTwice.status === 400);
+  const couponOrder = await req('/orders', {
+    method: 'POST',
+    body: {
+      storeId: 'store_naicha',
+      items: [
+        { dishId: 'd_nc_putao', qty: 1 },
+        { dishId: 'd_nc_yangzhi', qty: 1 },
+      ],
+      addressId: addressId2,
+      note: '',
+      couponId: 'cp_8',
+    },
+    token,
+  });
+  const co = couponOrder.body.order as { subtotal: number; couponDiscount: number; promoDiscount: number; total: number; couponId?: string };
+  check('用券订单满减 7', co.promoDiscount === 7);
+  check('用券订单券抵扣 8', co.couponDiscount === 8);
+  check('用券订单实付 32', co.total === 32);
+  check('用券订单记录券 id', co.couponId === 'cp_8');
+  const mineCoupons = await req('/coupons/mine', { token });
+  const cp8 = (mineCoupons.body.coupons as { id: string; usedAt?: number }[]).find((c) => c.id === 'cp_8');
+  check('我的优惠券显示已使用', cp8 != null && cp8.usedAt != null);
+
+  // 取消订单与催单
+  const cancelOrder = await req('/orders', {
+    method: 'POST',
+    body: { storeId: 'store_hutong', items: [{ dishId: 'd_hm_zjm', qty: 1 }], addressId: addressId2, note: '' },
+    token,
+  });
+  const cancelId = (cancelOrder.body.order as { id: string }).id;
+  const cancelled = await req(`/orders/${cancelId}/cancel`, { method: 'POST', token });
+  check('取消订单成功', cancelled.status === 200 && (cancelled.body.order as { cancelled: boolean }).cancelled === true);
+  const cancelAgain = await req(`/orders/${cancelId}/cancel`, { method: 'POST', token });
+  check('重复取消被拒', cancelAgain.status === 400);
+  const urge1 = await req(`/orders/${o1.id}/urge`, { method: 'POST', token });
+  check('催单 1 次生效', (urge1.body.order as { urges: number }).urges === 1);
+  const urge2 = await req(`/orders/${o1.id}/urge`, { method: 'POST', token });
+  check('催单 2 次生效', (urge2.body.order as { urges: number }).urges === 2);
+
+  // 评价：提交后店铺评价墙可见
+  const review = await req('/reviews', {
+    method: 'POST',
+    body: { storeId: 'store_hutong', orderId: o1.id, rating: 5, tags: ['味道好', '分量足'], text: '测试评价：很好吃' },
+    token,
+  });
+  check('提交评价成功', review.status === 201);
+  const storeReviews = await req('/stores/store_hutong/reviews');
+  check('店铺评价包含新评价', (storeReviews.body.reviews as { text: string }[]).some((r) => r.text === '测试评价：很好吃'));
+  const mineReviews = await req('/reviews/mine', { token });
+  check('我的评价 1 条', (mineReviews.body.reviews as unknown[]).length === 1);
+
   // 第二个用户登录（先发验证码再登录）
   await req('/auth/send-code', { method: 'POST', body: { phone: '13900139000' } });
   const otherLogin = await req('/auth/login', { method: 'POST', body: { phone: '13900139000', code: '123456' } });

@@ -9,6 +9,8 @@ import { MealPrefsProvider } from './context/MealPrefsContext';
 import { ThemeProvider } from './context/ThemeContext';
 import { AuthProvider } from './context/AuthContext';
 import { StoresProvider } from './context/StoresContext';
+import { CouponsProvider } from './context/CouponsContext';
+import { ReviewsProvider } from './context/ReviewsContext';
 import App from './App';
 import './index.css';
 
@@ -19,17 +21,21 @@ createRoot(document.getElementById('root')!).render(
       <ToastProvider>
         <AuthProvider>
           <StoresProvider>
-            <CartProvider>
-              <OrdersProvider>
-                <ProfileProvider>
-                  <MealPrefsProvider>
-                    <HashRouter>
-                      <App />
-                    </HashRouter>
-                  </MealPrefsProvider>
-                </ProfileProvider>
-              </OrdersProvider>
-            </CartProvider>
+            <CouponsProvider>
+              <ReviewsProvider>
+                <CartProvider>
+                  <OrdersProvider>
+                    <ProfileProvider>
+                      <MealPrefsProvider>
+                        <HashRouter>
+                          <App />
+                        </HashRouter>
+                      </MealPrefsProvider>
+                    </ProfileProvider>
+                  </OrdersProvider>
+                </CartProvider>
+              </ReviewsProvider>
+            </CouponsProvider>
           </StoresProvider>
         </AuthProvider>
       </ToastProvider>

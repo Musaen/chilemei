@@ -33,6 +33,10 @@ export const STORES: Store[] = [
     tags: ['老字号', '现擀面条'],
     notice: '本店面条现擀现煮，炸酱选用干黄酱炒制两小时，欢迎老主顾回家吃饭。',
     banner: 'linear-gradient(135deg,#FFB27A,#FF8A50)',
+    openHours: '09:00-21:30',
+    address: '北京市东城区东四北大街 88 号',
+    license: '营业执照 · 食品经营许可证',
+    promos: [{ label: '满 30 减 5', threshold: 30, discount: 5 }],
     dishes: [
       {
         id: 'd_hm_zjm',
@@ -43,6 +47,22 @@ export const STORES: Store[] = [
         sales: 1200,
         tags: ['招牌'],
         avoid: ['葱'],
+        specs: [
+          {
+            name: '面量',
+            options: [
+              { key: 'standard', label: '标准份', priceDelta: 0 },
+              { key: 'extra', label: '加量 +50g', priceDelta: 5 },
+            ],
+          },
+          {
+            name: '口味',
+            options: [
+              { key: 'normal', label: '正常', priceDelta: 0 },
+              { key: 'more_sauce', label: '多酱', priceDelta: 3 },
+            ],
+          },
+        ],
       },
       {
         id: 'd_hm_taocan',
@@ -130,6 +150,10 @@ export const STORES: Store[] = [
     tags: ['现包现蒸', '皮薄汤多'],
     notice: '小笼全部现包现蒸，高峰期出餐约 15 分钟，请耐心等待。',
     banner: 'linear-gradient(135deg,#FFD0A0,#FFB27A)',
+    openHours: '07:00-20:30',
+    address: '北京市朝阳区三里屯 SOHO 5 号楼底商',
+    license: '营业执照 · 食品经营许可证',
+    promos: [{ label: '满 25 减 4', threshold: 25, discount: 4 }],
     dishes: [
       {
         id: 'd_xl_xianrou',
@@ -140,6 +164,16 @@ export const STORES: Store[] = [
         sales: 1500,
         tags: ['招牌'],
         avoid: ['猪肉', '葱'],
+        specs: [
+          {
+            name: '蘸料',
+            options: [
+              { key: 'vinegar', label: '香醋', priceDelta: 0 },
+              { key: 'chili_oil', label: '辣油', priceDelta: 0 },
+              { key: 'both', label: '醋 + 辣油', priceDelta: 1 },
+            ],
+          },
+        ],
       },
       {
         id: 'd_xl_xiehuang',
@@ -217,6 +251,13 @@ export const STORES: Store[] = [
     tags: ['真茶现泡', '鲜奶制作'],
     notice: '茶叶每日现泡，拒绝隔夜茶汤；甜度冰量备注即可，我们都会认真看。',
     banner: 'linear-gradient(135deg,#F6C1D9,#FFA8C5)',
+    openHours: '10:00-22:30',
+    address: '北京市海淀区成府路 28 号优盛大厦 1 层',
+    license: '营业执照 · 食品经营许可证',
+    promos: [
+      { label: '满 20 减 3', threshold: 20, discount: 3 },
+      { label: '满 35 减 7', threshold: 35, discount: 7 },
+    ],
     dishes: [
       {
         id: 'd_nc_yangzhi',
@@ -227,6 +268,23 @@ export const STORES: Store[] = [
         sales: 2800,
         tags: ['招牌'],
         avoid: ['奶制品', '甜'],
+        specs: [
+          {
+            name: '杯型',
+            options: [
+              { key: 'large', label: '大杯', priceDelta: 0 },
+              { key: 'medium', label: '中杯', priceDelta: -3 },
+            ],
+          },
+          {
+            name: '冰量',
+            options: [
+              { key: 'normal_ice', label: '正常冰', priceDelta: 0 },
+              { key: 'less_ice', label: '少冰', priceDelta: 0 },
+              { key: 'no_ice', label: '去冰', priceDelta: 0 },
+            ],
+          },
+        ],
       },
       {
         id: 'd_nc_zhenzhu',
@@ -237,6 +295,25 @@ export const STORES: Store[] = [
         sales: 3200,
         tags: [],
         avoid: ['奶制品', '甜'],
+        specs: [
+          {
+            name: '糖度',
+            options: [
+              { key: 'full', label: '标准糖', priceDelta: 0 },
+              { key: 'third', label: '三分糖', priceDelta: 0 },
+              { key: 'zero', label: '无糖', priceDelta: 0 },
+            ],
+          },
+          {
+            name: '冰量',
+            options: [
+              { key: 'normal_ice', label: '正常冰', priceDelta: 0 },
+              { key: 'less_ice', label: '少冰', priceDelta: 0 },
+              { key: 'no_ice', label: '去冰', priceDelta: 0 },
+              { key: 'hot', label: '热饮', priceDelta: 0 },
+            ],
+          },
+        ],
       },
       {
         id: 'd_nc_putao',
@@ -247,6 +324,15 @@ export const STORES: Store[] = [
         sales: 1800,
         tags: ['新品'],
         avoid: ['奶制品', '甜'],
+        specs: [
+          {
+            name: '杯型',
+            options: [
+              { key: 'large', label: '大杯', priceDelta: 0 },
+              { key: 'medium', label: '中杯', priceDelta: -3 },
+            ],
+          },
+        ],
       },
       {
         id: 'd_nc_yeye',
@@ -257,6 +343,15 @@ export const STORES: Store[] = [
         sales: 1500,
         tags: [],
         avoid: ['奶制品'],
+        specs: [
+          {
+            name: '温度',
+            options: [
+              { key: 'iced', label: '冰', priceDelta: 0 },
+              { key: 'hot', label: '热', priceDelta: 0 },
+            ],
+          },
+        ],
       },
       {
         id: 'd_nc_baixiang',
@@ -304,6 +399,10 @@ export const STORES: Store[] = [
     tags: ['现做现炸', '肉饼厚实'],
     notice: '汉堡均为下单后现做，薯条现炸，出餐约 10 分钟。',
     banner: 'linear-gradient(135deg,#FFD166,#FFB84D)',
+    openHours: '10:30-23:00',
+    address: '北京市海淀区中关村大街 19 号新中关购物中心 B1',
+    license: '营业执照 · 食品经营许可证',
+    promos: [{ label: '满 30 减 5', threshold: 30, discount: 5 }],
     dishes: [
       {
         id: 'd_hb_zhishi',
@@ -314,6 +413,15 @@ export const STORES: Store[] = [
         sales: 1600,
         tags: ['招牌'],
         avoid: ['牛肉', '奶制品'],
+        specs: [
+          {
+            name: '芝士',
+            options: [
+              { key: 'double', label: '双层芝士', priceDelta: 0 },
+              { key: 'extra', label: '芝士加量', priceDelta: 4 },
+            ],
+          },
+        ],
       },
       {
         id: 'd_hb_xiangla',
@@ -324,6 +432,16 @@ export const STORES: Store[] = [
         sales: 1400,
         tags: ['辣'],
         avoid: ['辣', '油炸'],
+        specs: [
+          {
+            name: '辣度',
+            options: [
+              { key: 'mild', label: '微辣', priceDelta: 0 },
+              { key: 'medium', label: '中辣', priceDelta: 0 },
+              { key: 'hot', label: '特辣', priceDelta: 0 },
+            ],
+          },
+        ],
       },
       {
         id: 'd_hb_peigen',
@@ -391,6 +509,10 @@ export const STORES: Store[] = [
     tags: ['低卡高蛋白', '食材新鲜'],
     notice: '所有食材当天采购，鸡胸肉低温慢煮，沙拉酱单独分装。',
     banner: 'linear-gradient(135deg,#9BDBA8,#67C587)',
+    openHours: '08:00-21:00',
+    address: '北京市海淀区五道口华清嘉园 7 号楼底商',
+    license: '营业执照 · 食品经营许可证',
+    promos: [{ label: '满 35 减 6', threshold: 35, discount: 6 }],
     dishes: [
       {
         id: 'd_qs_jixiong',
@@ -401,6 +523,16 @@ export const STORES: Store[] = [
         sales: 600,
         tags: ['招牌'],
         avoid: [],
+        specs: [
+          {
+            name: '酱汁',
+            options: [
+              { key: 'vinaigrette', label: '油醋汁', priceDelta: 0 },
+              { key: 'sesame', label: '芝麻酱', priceDelta: 0 },
+              { key: 'no_sauce', label: '不要酱', priceDelta: 0 },
+            ],
+          },
+        ],
       },
       {
         id: 'd_qs_niuyouguo',
@@ -411,6 +543,16 @@ export const STORES: Store[] = [
         sales: 420,
         tags: ['新品'],
         avoid: ['蒜'],
+        specs: [
+          {
+            name: '加料',
+            options: [
+              { key: 'plain', label: '标准', priceDelta: 0 },
+              { key: 'chicken', label: '加鸡胸肉', priceDelta: 8 },
+              { key: 'shrimp', label: '加虾仁', priceDelta: 10 },
+            ],
+          },
+        ],
       },
       {
         id: 'd_qs_juan',
@@ -468,6 +610,10 @@ export const STORES: Store[] = [
     tags: ['传统小吃', '现做现卖'],
     notice: '糖葫芦每日现熬糖现裹，山楂选用怀柔山货，甜而不齁。',
     banner: 'linear-gradient(135deg,#FFB3A7,#FF8A80)',
+    openHours: '09:00-21:00',
+    address: '北京市西城区牛街 24 号',
+    license: '营业执照 · 食品经营许可证',
+    promos: [{ label: '满 20 减 3', threshold: 20, discount: 3 }],
     dishes: [
       {
         id: 'd_ts_hulu',
@@ -498,6 +644,15 @@ export const STORES: Store[] = [
         sales: 520,
         tags: ['新品', '限时'],
         avoid: ['甜'],
+        specs: [
+          {
+            name: '份量',
+            options: [
+              { key: 'small', label: '小份 4 颗', priceDelta: 0 },
+              { key: 'large', label: '大份 8 颗', priceDelta: 12 },
+            ],
+          },
+        ],
       },
       {
         id: 'd_ts_lvdagun',
@@ -556,6 +711,10 @@ export const STORES: Store[] = [
     tags: ['营业到凌晨 2 点', '炭火现烤'],
     notice: '炭火现烤，高峰期出餐约 20 分钟；夜宵时段 22 点后配送费减半。',
     banner: 'linear-gradient(135deg,#4A4A58,#2F2F3A)',
+    openHours: '16:00-02:00',
+    address: '北京市海淀区学院路 6 号富润家园底商',
+    license: '营业执照 · 食品经营许可证 · 清真认证',
+    promos: [{ label: '满 50 减 10', threshold: 50, discount: 10 }],
     dishes: [
       {
         id: 'd_sk_yangrou',
@@ -566,6 +725,16 @@ export const STORES: Store[] = [
         sales: 1500,
         tags: ['招牌', '辣'],
         avoid: ['辣'],
+        specs: [
+          {
+            name: '辣度',
+            options: [
+              { key: 'mild', label: '微辣', priceDelta: 0 },
+              { key: 'medium', label: '中辣', priceDelta: 0 },
+              { key: 'super', label: '变态辣', priceDelta: 0 },
+            ],
+          },
+        ],
       },
       {
         id: 'd_sk_jichi',
@@ -654,6 +823,10 @@ export const STORES: Store[] = [
     tags: ['清真', '火锅外卖'],
     notice: '羊蝎子每日鲜炖 3 小时，汤底免费续；配送含一次性锅具。',
     banner: 'linear-gradient(135deg,#C98A5E,#A5673F)',
+    openHours: '10:00-22:00',
+    address: '北京市西城区牛街西里 2 区 3 号楼',
+    license: '营业执照 · 食品经营许可证 · 清真认证',
+    promos: [{ label: '满 100 减 15', threshold: 100, discount: 15 }],
     dishes: [
       {
         id: 'd_yxz_xiaoguo',
@@ -664,6 +837,16 @@ export const STORES: Store[] = [
         sales: 600,
         tags: ['招牌'],
         avoid: ['辣', '葱'],
+        specs: [
+          {
+            name: '辣度',
+            options: [
+              { key: 'none', label: '不辣', priceDelta: 0 },
+              { key: 'mild', label: '微辣', priceDelta: 0 },
+              { key: 'medium', label: '中辣', priceDelta: 0 },
+            ],
+          },
+        ],
       },
       {
         id: 'd_yxz_daguo',

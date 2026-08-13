@@ -6,15 +6,16 @@ import { useToast } from '../context/ToastContext';
 import { useTheme } from '../context/ThemeContext';
 import { useAuth } from '../context/AuthContext';
 import { useStores } from '../context/StoresContext';
+import { useCoupons } from '../context/CouponsContext';
 import { THEMES, getTheme } from '../theme';
-import { TIMELINE } from '../utils/format';
 
 // 我的：昵称、菜单入口、收藏店铺
 
 export default function Profile() {
   const navigate = useNavigate();
   const { nickname, setNickname, favorites, toggleFavorite, blocked } = useProfile();
-  const { orders } = useOrders();
+  const { orders, statusOf } = useOrders();
+  const { coupons } = useCoupons();
   const { showToast } = useToast();
   const { themeKey, setThemeKey } = useTheme();
   const { user, apiMode, logout } = useAuth();
@@ -23,10 +24,8 @@ export default function Profile() {
   const [draft, setDraft] = useState(nickname);
 
   const favStores = favorites.map((id) => getStoreById(id)).filter((s) => s !== undefined);
-  const doneCount = orders.filter((o) => {
-    const elapsed = (Date.now() - o.placedAt) / 1000;
-    return elapsed >= TIMELINE.delivered;
-  }).length;
+  const doneCount = orders.filter((o) => statusOf(o) === 'delivered').length;
+  const usableCouponCount = coupons.filter((c) => !c.usedAt && c.expiresAt >= Date.now()).length;
 
   const saveNickname = () => {
     setNickname(draft);
@@ -144,9 +143,10 @@ export default function Profile() {
           {blocked.length > 0 && <span className="menu-count">{blocked.length}</span>}
           <span className="menu-arrow">›</span>
         </button>
-        <button className="profile-menu-item" onClick={() => showToast('演示模式：暂无优惠券')}>
+        <button className="profile-menu-item" onClick={() => navigate('/coupons')}>
           <span className="menu-icon">🎟️</span>
           <span className="menu-label">优惠券</span>
+          {usableCouponCount > 0 && <span className="menu-count">{usableCouponCount}</span>}
           <span className="menu-arrow">›</span>
         </button>
         <button className="profile-menu-item" onClick={() => showToast('无广告 · 极简 · 配送透明 —— 这就是吃了没')}>

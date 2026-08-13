@@ -17,7 +17,7 @@ export default function Orders() {
     const order = orders.find((o) => o.id === orderId);
     if (!order) return;
     for (const item of order.items) {
-      for (let i = 0; i < item.qty; i++) add(order.storeId, item.dishId);
+      for (let i = 0; i < item.qty; i++) add(order.storeId, item.dishId, item.specKey);
     }
     showToast('已加入购物车');
     navigate(`/store/${order.storeId}`);
@@ -53,8 +53,9 @@ export default function Orders() {
                 </div>
                 <div className="order-card-items">
                   {order.items.slice(0, 3).map((item) => (
-                    <span key={item.dishId} className="order-item-chip">
-                      {item.emoji} {item.name}×{item.qty}
+                    <span key={`${item.dishId}|${item.specKey ?? ''}`} className="order-item-chip">
+                      {item.emoji} {item.name}
+                      {item.specText ? `（${item.specText}）` : ''}×{item.qty}
                     </span>
                   ))}
                   {order.items.length > 3 && <span className="order-more">等 {order.items.length} 种商品</span>}
@@ -68,7 +69,7 @@ export default function Orders() {
                   </span>
                 </div>
                 <div className="order-card-actions">
-                  {!done && (
+                  {!done && !order.cancelled && (
                     <button className="ghost-btn" onClick={() => navigate(`/track/${order.id}`)}>
                       查看配送
                     </button>

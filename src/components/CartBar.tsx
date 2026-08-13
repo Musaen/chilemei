@@ -1,8 +1,8 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import type { Store } from '../types';
-import { useCart } from '../context/CartContext';
-import { formatPrice } from '../utils/format';
+import { itemKey, useCart } from '../context/CartContext';
+import { formatPrice, isStoreOpen } from '../utils/format';
 import Stepper from './Stepper';
 
 // 店铺详情页底部购物车栏：合计 + 可展开的购物车抽屉
@@ -16,8 +16,9 @@ export default function CartBar({ store }: CartBarProps) {
   const { getStoreCart, setQty, clearStore } = useCart();
   const { items, count, subtotal } = getStoreCart(store);
   const [open, setOpen] = useState(false);
+  const storeOpen = isStoreOpen(store);
   const remain = store.minOrder - subtotal;
-  const canCheckout = count > 0 && remain <= 0;
+  const canCheckout = storeOpen && count > 0 && remain <= 0;
 
   return (
     <>
@@ -37,18 +38,21 @@ export default function CartBar({ store }: CartBarProps) {
               </button>
             </div>
             {items.length === 0 && <div className="cart-empty-hint">购物车还是空的，去加点好吃的吧～</div>}
-            {items.map(({ dish, qty }) => (
-              <div className="cart-drawer-item" key={dish.id}>
-                <span className="cart-drawer-emoji">{dish.emoji}</span>
+            {items.map((item) => (
+              <div className="cart-drawer-item" key={itemKey(item.dish.id, item.specKey)}>
+                <span className="cart-drawer-emoji">{item.dish.emoji}</span>
                 <div className="cart-drawer-info">
-                  <div className="cart-drawer-name">{dish.name}</div>
-                  <div className="cart-drawer-price">¥{formatPrice(dish.price)}</div>
+                  <div className="cart-drawer-name">
+                    {item.dish.name}
+                    {item.specText && <span className="cart-drawer-spec">{item.specText}</span>}
+                  </div>
+                  <div className="cart-drawer-price">¥{formatPrice(item.unitPrice)}</div>
                 </div>
                 <Stepper
                   small
-                  qty={qty}
-                  onAdd={() => setQty(store.id, dish.id, qty + 1)}
-                  onMinus={() => setQty(store.id, dish.id, qty - 1)}
+                  qty={item.qty}
+                  onAdd={() => setQty(store.id, itemKey(item.dish.id, item.specKey), item.qty + 1)}
+                  onMinus={() => setQty(store.id, itemKey(item.dish.id, item.specKey), item.qty - 1)}
                 />
               </div>
             ))}
@@ -66,7 +70,13 @@ export default function CartBar({ store }: CartBarProps) {
           {count > 0 ? (
             <>
               <span className="cart-bar-total">¥{formatPrice(subtotal)}</span>
-              <span className="cart-bar-tip">{canCheckout ? '配送费 ¥' + formatPrice(store.deliveryFee) : `还差 ¥${formatPrice(remain)} 起送`}</span>
+              <span className="cart-bar-tip">
+                {!storeOpen
+                  ? '店铺休息中'
+                  : canCheckout
+                    ? '配送费 ¥' + formatPrice(store.deliveryFee)
+                    : `还差 ¥${formatPrice(remain)} 起送`}
+              </span>
             </>
           ) : (
             <span className="cart-bar-tip">购物车是空的</span>
@@ -77,7 +87,7 @@ export default function CartBar({ store }: CartBarProps) {
           disabled={!canCheckout}
           onClick={() => navigate(`/checkout?store=${store.id}`)}
         >
-          {canCheckout ? '去结算' : '未达起送'}
+          {!storeOpen ? '休息中' : canCheckout ? '去结算' : '未达起送'}
         </button>
       </div>
     </>

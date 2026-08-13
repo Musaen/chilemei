@@ -1,7 +1,7 @@
 import { useNavigate } from 'react-router-dom';
 import type { Store } from '../types';
 import { useProfile } from '../context/ProfileContext';
-import { formatPrice } from '../utils/format';
+import { formatPrice, isStoreOpen, storeOpenText } from '../utils/format';
 
 // 店铺卡片：首页店铺列表使用
 
@@ -9,6 +9,7 @@ export default function StoreCard({ store }: { store: Store }) {
   const navigate = useNavigate();
   const { isFavorite, toggleFavorite } = useProfile();
   const fav = isFavorite(store.id);
+  const open = isStoreOpen(store);
 
   return (
     <div className="store-card" onClick={() => navigate(`/store/${store.id}`)}>
@@ -16,6 +17,7 @@ export default function StoreCard({ store }: { store: Store }) {
       <div className="store-logo" style={{ background: store.banner }}>
         <span className="store-logo-emoji">{store.emoji}</span>
         {fav && <span className="store-fav-badge">♥</span>}
+        <span className={open ? 'store-open store-open--on' : 'store-open'}>{storeOpenText(store)}</span>
       </div>
       {/* 店铺信息区 */}
       <div className="store-info">
@@ -42,6 +44,15 @@ export default function StoreCard({ store }: { store: Store }) {
           <span>起送 ¥{formatPrice(store.minOrder)}</span>
           <span>{store.deliveryFee > 0 ? `配送费 ¥${formatPrice(store.deliveryFee)}` : '免配送费'}</span>
         </div>
+        {store.promos && store.promos.length > 0 && (
+          <div className="store-promos">
+            {store.promos.map((p) => (
+              <span className="store-promo" key={p.label}>
+                {p.label}
+              </span>
+            ))}
+          </div>
+        )}
         <div className="store-tags">
           {store.tags.map((tag) => (
             <span className="store-tag" key={tag}>

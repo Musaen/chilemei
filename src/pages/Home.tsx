@@ -13,6 +13,21 @@ import StoreCard from '../components/StoreCard';
 
 // 首页：搜索、时段推荐、分类、猜你喜欢、附近好店
 
+/** 热搜词（演示固定榜单） */
+const HOT_WORDS = ['炸酱面', '杨枝甘露', '汉堡', '小笼包', '鸡胸肉', '羊肉串'];
+
+const SEARCH_HISTORY_KEY = 'clm_search_history';
+
+/** 读取搜索历史 */
+function loadHistory(): string[] {
+  try {
+    const raw = localStorage.getItem(SEARCH_HISTORY_KEY);
+    return raw ? (JSON.parse(raw) as string[]) : [];
+  } catch {
+    return [];
+  }
+}
+
 /** 根据时段推荐品类 */
 function periodCategories(period: string): string[] {
   switch (period) {
@@ -69,6 +84,9 @@ export default function Home() {
   const [keyword, setKeyword] = useState('');
   const [category, setCategory] = useState('全部');
   const [sort, setSort] = useState<'综合' | '评分' | '销量' | '配送最快'>('综合');
+  const [filters, setFilters] = useState<string[]>([]);
+  const [searchFocused, setSearchFocused] = useState(false);
+  const [history, setHistory] = useState<string[]>(loadHistory);
 
   const period = getPeriod();
   const periodDishes = useMemo(
@@ -99,19 +117,45 @@ export default function Home() {
     let list = stores.filter((s) => {
       if (blocked.includes(s.id)) return false;
       const matchCat = category === '全部' || s.category === category;
+      const matchFilters =
+        (!filters.includes('免配送费') || s.deliveryFee === 0) &&
+        (!filters.includes('有满减') || !!s.promos?.length) &&
+        (!filters.includes('评分≥4.5') || s.rating >= 4.5);
       const kw = keyword.trim();
       const matchKw =
         !kw ||
         s.name.includes(kw) ||
         s.tags.some((t) => t.includes(kw)) ||
         s.dishes.some((d) => d.name.includes(kw));
-      return matchCat && matchKw;
+      return matchCat && matchKw && matchFilters;
     });
     if (sort === '评分') list = [...list].sort((a, b) => b.rating - a.rating);
     if (sort === '销量') list = [...list].sort((a, b) => b.monthlySales - a.monthlySales);
     if (sort === '配送最快') list = [...list].sort((a, b) => a.deliveryTime - b.deliveryTime);
     return list;
-  }, [keyword, category, sort, blocked, stores]);
+  }, [keyword, category, sort, filters, blocked, stores]);
+
+  /** 保存搜索历史（去重、最多 8 条） */
+  const saveHistory = (kw: string) => {
+    const clean = kw.trim();
+    if (!clean) return;
+    const next = [clean, ...history.filter((h) => h !== clean)].slice(0, 8);
+    setHistory(next);
+    localStorage.setItem(SEARCH_HISTORY_KEY, JSON.stringify(next));
+  };
+
+  /** 提交搜索 */
+  const submitSearch = (kw?: string) => {
+    const value = kw ?? keyword;
+    setKeyword(value);
+    saveHistory(value);
+    setSearchFocused(false);
+  };
+
+  /** 切换筛选条件 */
+  const toggleFilter = (f: string) => {
+    setFilters((prev) => (prev.includes(f) ? prev.filter((x) => x !== f) : [...prev, f]));
+  };
 
   return (
     <div className="page home-page">
@@ -134,6 +178,11 @@ export default function Home() {
           <input
             value={keyword}
             onChange={(e) => setKeyword(e.target.value)}
+            onFocus={() => setSearchFocused(true)}
+            onBlur={() => setTimeout(() => setSearchFocused(false), 150)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') submitSearch();
+            }}
             placeholder="搜索店铺或菜品，比如「炸酱面」"
           />
           {keyword && (
@@ -142,6 +191,34 @@ export default function Home() {
             </button>
           )}
         </div>
+
+        {/* 搜索联想：热搜 + 历史 */}
+        {searchFocused && (
+          <div className="search-suggest">
+            {history.length > 0 && (
+              <div className="suggest-row">
+                <span className="suggest-label">🕘 搜索历史</span>
+                <div className="suggest-chips">
+                  {history.map((h) => (
+                    <button key={h} className="suggest-chip" onMouseDown={() => submitSearch(h)}>
+                      {h}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+            <div className="suggest-row">
+              <span className="suggest-label">🔥 热搜</span>
+              <div className="suggest-chips">
+                {HOT_WORDS.map((h) => (
+                  <button key={h} className="suggest-chip suggest-chip--hot" onMouseDown={() => submitSearch(h)}>
+                    {h}
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* 分类金刚区 */}
         <div className="category-row">
@@ -197,6 +274,11 @@ export default function Home() {
                     aria-label="加入购物车"
                     onClick={(e) => {
                       e.stopPropagation();
+                      if (dish.specs?.length) {
+                        showToast('这道菜有规格，进店选择后再加购');
+                        navigate(`/store/${store.id}`);
+                        return;
+                      }
                       add(store.id, dish.id);
                       showToast('已加入购物车');
                     }}
@@ -242,6 +324,18 @@ export default function Home() {
                 onClick={() => setSort(s)}
               >
                 {s}
+              </button>
+            ))}
+          </div>
+          {/* 筛选栏 */}
+          <div className="filter-row">
+            {(['免配送费', '有满减', '评分≥4.5'] as const).map((f) => (
+              <button
+                key={f}
+                className={filters.includes(f) ? 'filter-chip filter-chip--active' : 'filter-chip'}
+                onClick={() => toggleFilter(f)}
+              >
+                {f}
               </button>
             ))}
           </div>

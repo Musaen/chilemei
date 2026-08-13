@@ -14,6 +14,8 @@ interface OrdersCtx {
   addOrder: (order: Order) => Promise<Order>;
   getOrder: (id: string) => Order | undefined;
   statusOf: (order: Order) => OrderStatus;
+  cancelOrder: (orderId: string) => Promise<boolean>;
+  urgeOrder: (orderId: string) => Promise<boolean>;
 }
 
 const OrdersContext = createContext<OrdersCtx | null>(null);
@@ -29,7 +31,9 @@ function loadOrders(): Order[] {
 
 export function OrdersProvider({ children }: { children: ReactNode }) {
   const { apiMode, token } = useAuth();
-  const [orders, setOrders] = useState<Order[]>([]);
+  // 初始状态直接从本地恢复：避免 StrictMode 下 effect 二次执行时，
+  // 先读本地、再被写入 effect（旧状态空数组）覆盖导致刷新丢订单
+  const [orders, setOrders] = useState<Order[]>(() => (token ? [] : loadOrders()));
 
   // 登录状态或后端可用性变化时重新加载订单
   useEffect(() => {
@@ -66,9 +70,11 @@ export function OrdersProvider({ children }: { children: ReactNode }) {
           '/orders',
           {
             storeId: order.storeId,
-            items: order.items.map((i) => ({ dishId: i.dishId, qty: i.qty })),
+            items: order.items.map((i) => ({ dishId: i.dishId, qty: i.qty, specKey: i.specKey })),
             addressId: order.address.id,
             note: order.note,
+            utensils: order.utensils,
+            couponId: order.couponId,
           },
           token,
         );
@@ -86,7 +92,45 @@ export function OrdersProvider({ children }: { children: ReactNode }) {
 
   const statusOf = (order: Order) => getOrderStatus(order);
 
-  return <OrdersContext.Provider value={{ orders, addOrder, getOrder, statusOf }}>{children}</OrdersContext.Provider>;
+  /** 取消订单：窗口期内允许，退款为演示（原路返回） */
+  const cancelOrder = async (orderId: string): Promise<boolean> => {
+    const order = getOrder(orderId);
+    if (!order) return false;
+    if (apiMode && token) {
+      try {
+        const data = await api.post<{ order: Order }>(`/orders/${orderId}/cancel`, {}, token);
+        setOrders((prev) => prev.map((o) => (o.id === orderId ? data.order : o)));
+        return true;
+      } catch {
+        return false;
+      }
+    }
+    setOrders((prev) => prev.map((o) => (o.id === orderId ? { ...o, cancelled: true } : o)));
+    return true;
+  };
+
+  /** 催单：每次催单让演示配送加速 8 秒 */
+  const urgeOrder = async (orderId: string): Promise<boolean> => {
+    const order = getOrder(orderId);
+    if (!order) return false;
+    if (apiMode && token) {
+      try {
+        const data = await api.post<{ order: Order }>(`/orders/${orderId}/urge`, {}, token);
+        setOrders((prev) => prev.map((o) => (o.id === orderId ? data.order : o)));
+        return true;
+      } catch {
+        return false;
+      }
+    }
+    setOrders((prev) => prev.map((o) => (o.id === orderId ? { ...o, urges: (o.urges ?? 0) + 1 } : o)));
+    return true;
+  };
+
+  return (
+    <OrdersContext.Provider value={{ orders, addOrder, getOrder, statusOf, cancelOrder, urgeOrder }}>
+      {children}
+    </OrdersContext.Provider>
+  );
 }
 
 /** 使用订单 */

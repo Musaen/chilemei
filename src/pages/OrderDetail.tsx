@@ -1,8 +1,9 @@
 import { useNavigate, useParams } from 'react-router-dom';
 import { useCart } from '../context/CartContext';
 import { useOrders } from '../context/OrdersContext';
+import { useReviews } from '../context/ReviewsContext';
 import { useToast } from '../context/ToastContext';
-import { STATUS_TEXT, formatDay, formatTime, getStatusIndex } from '../utils/format';
+import { canCancelOrder, STATUS_TEXT, formatDay, formatPrice, formatTime, getStatusIndex } from '../utils/format';
 import Header from '../components/Header';
 
 // 订单详情：状态、商品、地址、金额
@@ -11,8 +12,10 @@ export default function OrderDetail() {
   const { orderId } = useParams();
   const navigate = useNavigate();
   const { getOrder, statusOf } = useOrders();
+  const { reviewedOrderIds } = useReviews();
   const { add } = useCart();
   const { showToast } = useToast();
+  const { cancelOrder } = useOrders();
   const order = orderId ? getOrder(orderId) : undefined;
 
   if (!order) {
@@ -29,13 +32,23 @@ export default function OrderDetail() {
 
   const status = statusOf(order);
   const done = status === 'delivered';
+  const cancelled = status === 'cancelled';
+  const canCancel = canCancelOrder(order);
+  const alreadyReviewed = orderId ? reviewedOrderIds.includes(orderId) : false;
 
   const reorder = () => {
     for (const item of order.items) {
-      for (let i = 0; i < item.qty; i++) add(order.storeId, item.dishId);
+      for (let i = 0; i < item.qty; i++) add(order.storeId, item.dishId, item.specKey);
     }
     showToast('已加入购物车');
     navigate(`/store/${order.storeId}`);
+  };
+
+  /** 取消订单（需二次确认） */
+  const handleCancel = async () => {
+    if (!window.confirm('确定取消这笔订单吗？演示环境会原路退回支付金额。')) return;
+    const ok = await cancelOrder(order.id);
+    showToast(ok ? '订单已取消，款项已原路退回（演示）' : '取消失败，可能已过可取消时间');
   };
 
   return (
@@ -43,15 +56,18 @@ export default function OrderDetail() {
       <Header title="订单详情" />
 
       {/* 状态卡 */}
-      <div className={done ? 'detail-status detail-status--done' : 'detail-status'}>
-        <div className="detail-status-emoji">{done ? '🎉' : getStatusIndex(status) >= 2 ? '🛵' : '👨‍🍳'}</div>
+      <div className={cancelled ? 'detail-status detail-status--cancelled' : done ? 'detail-status detail-status--done' : 'detail-status'}>
+        <div className="detail-status-emoji">
+          {cancelled ? '🚫' : done ? '🎉' : getStatusIndex(status) >= 2 ? '🛵' : '👨‍🍳'}
+        </div>
         <div className="detail-status-text">
           <h2>{STATUS_TEXT[status]}</h2>
           <p>
             {formatDay(order.placedAt)} {formatTime(order.placedAt)} 下单 · {order.id}
           </p>
+          {cancelled && <p className="status-refund">已取消订单，支付金额已原路退回（演示）</p>}
         </div>
-        {!done && (
+        {!done && !cancelled && (
           <button className="ghost-btn ghost-btn--primary" onClick={() => navigate(`/track/${order.id}`)}>
             查看配送
           </button>
@@ -64,14 +80,18 @@ export default function OrderDetail() {
           {order.storeEmoji} {order.storeName}
         </div>
         {order.items.map((item) => (
-          <div className="track-item" key={item.dishId}>
+          <div className="track-item" key={`${item.dishId}|${item.specKey ?? ''}`}>
             <span>
-              {item.emoji} {item.name} ×{item.qty}
+              {item.emoji} {item.name}
+              {item.specText ? `（${item.specText}）` : ''} ×{item.qty}
             </span>
-            <span>¥{(item.price * item.qty).toFixed(2).replace(/\.?0+$/, '')}</span>
+            <span>¥{formatPrice(item.price * item.qty)}</span>
           </div>
         ))}
         {order.note && <div className="order-note">备注：{order.note}</div>}
+        {order.utensils && order.utensils !== '按需' && (
+          <div className="order-note">餐具：{order.utensils}</div>
+        )}
       </section>
 
       {/* 金额明细 */}
@@ -86,10 +106,22 @@ export default function OrderDetail() {
             <span>配送费</span>
             <span>¥{order.deliveryFee.toFixed(2).replace(/\.?0+$/, '')}</span>
           </div>
+          {(order.promoDiscount ?? 0) > 0 && (
+            <div className="price-row price-row--discount">
+              <span>店铺满减</span>
+              <span>-¥{formatPrice(order.promoDiscount ?? 0)}</span>
+            </div>
+          )}
+          {(order.couponDiscount ?? 0) > 0 && (
+            <div className="price-row price-row--discount">
+              <span>优惠券</span>
+              <span>-¥{formatPrice(order.couponDiscount ?? 0)}</span>
+            </div>
+          )}
           {order.discount > 0 && (
             <div className="price-row price-row--discount">
-              <span>优惠</span>
-              <span>-¥{order.discount.toFixed(2).replace(/\.?0+$/, '')}</span>
+              <span>优惠合计</span>
+              <span>-¥{formatPrice(order.discount)}</span>
             </div>
           )}
           <div className="price-row price-row--total">
@@ -120,12 +152,31 @@ export default function OrderDetail() {
 
       {/* 操作 */}
       <div className="track-actions">
-        <button className="secondary-btn" onClick={reorder}>
-          再来一单
-        </button>
-        <button className="primary-btn" onClick={() => navigate('/')}>
-          继续点餐
-        </button>
+        {canCancel && (
+          <button className="ghost-btn ghost-btn--danger" onClick={handleCancel}>
+            取消订单
+          </button>
+        )}
+        {done && !alreadyReviewed && (
+          <button className="secondary-btn" onClick={() => navigate(`/review/${order.id}`)}>
+            去评价 ⭐
+          </button>
+        )}
+        {!cancelled && (
+          <button className="secondary-btn" onClick={reorder}>
+            再来一单
+          </button>
+        )}
+        {!cancelled && (
+          <button className="primary-btn" onClick={() => navigate('/')}>
+            继续点餐
+          </button>
+        )}
+        {cancelled && (
+          <button className="primary-btn" onClick={() => navigate('/')}>
+            继续点餐
+          </button>
+        )}
       </div>
     </div>
   );

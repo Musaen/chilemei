@@ -12,6 +12,7 @@ export interface User {
 
 interface AuthCtx {
   apiMode: boolean; // 后端是否可用
+  apiChecking: boolean; // 是否仍在探测后端（避免登录页闪「演示模式」）
   user: User | null;
   token: string | null;
   login: (phone: string, code: string) => Promise<void>;
@@ -23,6 +24,7 @@ const AuthContext = createContext<AuthCtx | null>(null);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [apiMode, setApiMode] = useState(false);
+  const [apiChecking, setApiChecking] = useState(true);
   const [token, setTokenState] = useState<string | null>(() => getToken());
   const [user, setUser] = useState<User | null>(null);
 
@@ -33,6 +35,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const ok = await isApiAvailable();
       if (cancelled) return;
       setApiMode(ok);
+      setApiChecking(false);
       const saved = getToken();
       if (ok && saved) {
         try {
@@ -68,7 +71,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   return (
-    <AuthContext.Provider value={{ apiMode, user, token, login, logout, updateNickname }}>
+    <AuthContext.Provider value={{ apiMode, apiChecking, user, token, login, logout, updateNickname }}>
       {children}
     </AuthContext.Provider>
   );

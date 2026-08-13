@@ -9,7 +9,7 @@ import Header from '../components/Header';
 
 export default function Login() {
   const navigate = useNavigate();
-  const { apiMode, login } = useAuth();
+  const { apiMode, apiChecking, login } = useAuth();
   const { showToast } = useToast();
   const [phone, setPhone] = useState('');
   const [code, setCode] = useState('');
@@ -49,15 +49,32 @@ export default function Login() {
     }
   };
 
-  // 后端不可用时的演示模式提示
+  // 仍在探测后端：显示连接状态，避免闪「演示模式」
+  if (apiChecking) {
+    return (
+      <div className="page login-page">
+        <Header title="登录" />
+        <div className="empty-state">
+          <div className="empty-emoji">🔄</div>
+          <p>正在连接服务…</p>
+          <p className="empty-hint">请稍候，正在检查后端是否可用。</p>
+        </div>
+      </div>
+    );
+  }
+
+  // 后端不可用（如线上静态演示版）时的说明
   if (!apiMode) {
     return (
       <div className="page login-page">
         <Header title="登录" />
         <div className="empty-state">
           <div className="empty-emoji">🔐</div>
-          <p>当前是演示模式（未连接后端）</p>
-          <p className="empty-hint">无需登录即可完整体验全部功能，数据保存在本机。</p>
+          <p>线上演示版暂未部署后端</p>
+          <p className="empty-hint">
+            登录需要后端服务。当前公开网页是纯静态演示版，登录功能暂不可用；在本地启动后端（npm run server）后即可体验手机号 + 验证码 123456 登录。
+          </p>
+          <p className="empty-hint">无需登录也能完整体验点餐、支付、配送、评价等全部功能，数据保存在本机。</p>
           <button className="primary-btn" onClick={() => navigate('/profile')}>
             返回我的
           </button>

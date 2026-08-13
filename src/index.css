@@ -2281,6 +2281,23 @@ textarea {
   color: var(--text-3);
 }
 
+.home-exclude-chips {
+  flex: 1;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.home-exclude-empty {
+  flex: 1;
+  text-align: left;
+  font-size: 13px;
+  color: var(--text-3);
+  background: var(--bg);
+  border-radius: 999px;
+  padding: 6px 14px;
+}
+
 /* ===== 结算页忌口 ===== */
 .note-label {
   font-size: 13px;

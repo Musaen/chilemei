@@ -10,6 +10,7 @@ import { useStores } from '../context/StoresContext';
 import { useToast } from '../context/ToastContext';
 import { formatPrice, getPeriod, greeting, isDishExcluded } from '../utils/format';
 import StoreCard from '../components/StoreCard';
+import MealExcludeSheet from '../components/MealExcludeSheet';
 
 // 首页：搜索、时段推荐、分类、猜你喜欢、附近好店
 
@@ -87,6 +88,7 @@ export default function Home() {
   const [filters, setFilters] = useState<string[]>([]);
   const [searchFocused, setSearchFocused] = useState(false);
   const [history, setHistory] = useState<string[]>(loadHistory);
+  const [showExcludeSheet, setShowExcludeSheet] = useState(false);
 
   const period = getPeriod();
   const periodDishes = useMemo(
@@ -121,19 +123,22 @@ export default function Home() {
         (!filters.includes('免配送费') || s.deliveryFee === 0) &&
         (!filters.includes('有满减') || !!s.promos?.length) &&
         (!filters.includes('评分≥4.5') || s.rating >= 4.5);
+      // 忌口过滤：只看未被「这一顿不吃」排除的菜品，全部被排除的店铺不再展示
+      const visibleDishes = s.dishes.filter((d) => !isDishExcluded(d, excludes));
+      if (visibleDishes.length === 0) return false;
       const kw = keyword.trim();
       const matchKw =
         !kw ||
         s.name.includes(kw) ||
         s.tags.some((t) => t.includes(kw)) ||
-        s.dishes.some((d) => d.name.includes(kw));
+        visibleDishes.some((d) => d.name.includes(kw));
       return matchCat && matchKw && matchFilters;
     });
     if (sort === '评分') list = [...list].sort((a, b) => b.rating - a.rating);
     if (sort === '销量') list = [...list].sort((a, b) => b.monthlySales - a.monthlySales);
     if (sort === '配送最快') list = [...list].sort((a, b) => a.deliveryTime - b.deliveryTime);
     return list;
-  }, [keyword, category, sort, filters, blocked, stores]);
+  }, [keyword, category, sort, filters, blocked, excludes, stores]);
 
   /** 保存搜索历史（去重、最多 8 条） */
   const saveHistory = (kw: string) => {
@@ -236,20 +241,31 @@ export default function Home() {
       </div>
 
       <div className="home-body">
-        {/* 这一顿不想吃什么（快捷移除） */}
-        {excludes.length > 0 && (
-          <div className="home-excludes">
-            <span className="home-excludes-label">这一顿不吃</span>
-            {excludes.map((k) => (
-              <span className="meal-bar-chip" key={k}>
-                {k}
-                <button aria-label={`移除${k}`} onClick={() => toggle(k)}>
-                  ×
-                </button>
-              </span>
-            ))}
-          </div>
-        )}
+        {/* 这一顿不想吃什么（首页直接设置，与搜索/分类联动） */}
+        <div className="home-excludes">
+          <span className="home-excludes-label">这一顿不吃</span>
+          {excludes.length === 0 ? (
+            <button className="home-exclude-empty" onClick={() => setShowExcludeSheet(true)}>
+              点我选择，自动过滤菜品 →
+            </button>
+          ) : (
+            <>
+              <div className="home-exclude-chips">
+                {excludes.map((k) => (
+                  <span className="meal-bar-chip" key={k}>
+                    {k}
+                    <button aria-label={`移除${k}`} onClick={() => toggle(k)}>
+                      ×
+                    </button>
+                  </span>
+                ))}
+              </div>
+              <button className="link-btn" onClick={() => setShowExcludeSheet(true)}>
+                调整
+              </button>
+            </>
+          )}
+        </div>
 
         {/* 现在适合吃 */}
         <section className="section">
@@ -343,6 +359,11 @@ export default function Home() {
             <div className="empty-state">
               <div className="empty-emoji">🍽️</div>
               <p>没有找到相关店铺，换个关键词试试～</p>
+              {excludes.length > 0 && (
+                <button className="link-btn" onClick={() => setShowExcludeSheet(true)}>
+                  或调整「这一顿不吃」再试试
+                </button>
+              )}
             </div>
           ) : (
             <div className="store-list">
@@ -353,6 +374,8 @@ export default function Home() {
           )}
         </section>
       </div>
+      {/* 这一顿忌口选择面板（首页直接设置） */}
+      <MealExcludeSheet open={showExcludeSheet} onClose={() => setShowExcludeSheet(false)} />
     </div>
   );
 }
